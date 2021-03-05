@@ -128,7 +128,7 @@ namespace YY
 				auto pRtlNtStatusToDosError = try_get_RtlNtStatusToDosError();
 
 				//如果没有RtlNtStatusToDosError就直接设置Status代码吧，反正至少比没有错误代码强
-				DWORD lStatus = pRtlNtStatusToDosError ? pRtlNtStatusToDosError(Status) : Status;
+				DWORD lStatus = Status == STATUS_TIMEOUT ? WAIT_TIMEOUT : pRtlNtStatusToDosError ? pRtlNtStatusToDosError(Status) : Status;
 				SetLastError(lStatus);
 				return lStatus;
 			}
