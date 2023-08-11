@@ -6,23 +6,24 @@ namespace YY
 	{
 
 #if (YY_Thunks_Support_Version < NTDDI_WINXP)
+
 		// Available in starting with Windows XP.
 		// Windows 2000时这个函数就已经存在了，只是从XP开始才从kernel32.dll中导出
 		__DEFINE_THUNK(
-			ntdll,
-			16,
-			WORD,
-			NTAPI,
-			RtlCaptureStackBackTrace,
-			_In_ DWORD FramesToSkip,
-			_In_ DWORD FramesToCapture,
-			_Out_writes_to_(FramesToCapture, return) PVOID* BackTrace,
-			_Out_opt_ PDWORD BackTraceHash
-		)
+		ntdll,
+		16,
+		WORD,
+		NTAPI,
+		RtlCaptureStackBackTrace,
+			_In_ DWORD _uFramesToSkip,
+			_In_ DWORD _uFramesToCapture,
+			_Out_writes_to_(_uFramesToCapture, return) PVOID* _pBackTrace,
+			_Out_opt_ PDWORD _puBackTraceHash
+			)
 		{
-			if (const auto pRtlCaptureStackBackTrace = try_get_RtlCaptureStackBackTrace())
+			if (const auto _pfnRtlCaptureStackBackTrace = try_get_RtlCaptureStackBackTrace())
 			{
-				return pRtlCaptureStackBackTrace(FramesToSkip, FramesToCapture, BackTrace, BackTraceHash);
+				return _pfnRtlCaptureStackBackTrace(_uFramesToSkip, _uFramesToCapture, _pBackTrace, _puBackTraceHash);
 			}
 
 			return 0;

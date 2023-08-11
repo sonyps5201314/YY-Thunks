@@ -83,35 +83,54 @@ namespace YY
 #endif
 
 #if (YY_Thunks_Support_Version < NTDDI_WIN7)
-		//Windows 7 [desktop apps only]
-		//Windows Server 2008 R2 [desktop apps only]
+
+		// Windows 7 [desktop apps only]
+		// Windows Server 2008 R2 [desktop apps only]
 		__DEFINE_THUNK(
-			kernel32,
-			8,
-			BOOL,
-			WINAPI,
-			GetThreadGroupAffinity,
-			_In_ HANDLE hThread,
-			_Out_ PGROUP_AFFINITY affinity
-		)
+		kernel32,
+		8,
+		BOOL,
+		WINAPI,
+		GetThreadGroupAffinity,
+		    _In_ HANDLE _hThread,
+		    _Out_ PGROUP_AFFINITY _pAffinity
+		    )
 		{
-			if (const auto pGetThreadGroupAffinity = try_get_GetThreadGroupAffinity())
+			if (const auto _pfnGetThreadGroupAffinity = try_get_GetThreadGroupAffinity())
 			{
-				return pGetThreadGroupAffinity(hThread, affinity);
+				return _pfnGetThreadGroupAffinity(_hThread, _pAffinity);
 			}
 			else
 			{
-				// On operating systems older than Win7, we don't have access to the correct information about thread's affinity,
-				// so we will assume that the affinity is that of the process.
-				DWORD_PTR pProcessAffinityMask;
-				DWORD_PTR pSystemAffinityMask;
+				if (!_pAffinity)
+				{
+					SetLastError(ERROR_INVALID_PARAMETER);
+					return FALSE;
+				}
 
-				GetProcessAffinityMask(GetCurrentProcess(), &pProcessAffinityMask, &pSystemAffinityMask);
-				affinity->Group = 0;
-				affinity->Mask = pProcessAffinityMask;
+				const auto _pfnNtQueryInformationThread = try_get_NtQueryInformationThread();
+				if (!_pfnNtQueryInformationThread)
+				{
+					SetLastError(ERROR_INVALID_FUNCTION);
+					return FALSE;
+				}
+
+				THREAD_BASIC_INFORMATION _ThreadBasicInfo;
+				long _Status = _pfnNtQueryInformationThread(_hThread, ThreadBasicInformation, &_ThreadBasicInfo, sizeof(_ThreadBasicInfo), nullptr);
+
+				if (_Status < 0)
+				{
+					internal::BaseSetLastNTError(_Status);
+					return FALSE;
+				}
+
+				_pAffinity->Group = 0;
+				_pAffinity->Mask = _ThreadBasicInfo.AffinityMask;
+				_pAffinity->Reserved[0] = 0;
+				_pAffinity->Reserved[1] = 0;
+				_pAffinity->Reserved[2] = 0;
+				return TRUE;
 			}
-
-			return 1;
 		}
 #endif
 
