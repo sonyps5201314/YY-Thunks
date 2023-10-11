@@ -1,9 +1,11 @@
 ﻿// 忽略非标准的 0 数组警告。
 #pragma warning(disable:4200)
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 
 #define _YY_APPLY_TO_LATE_BOUND_MODULES(_APPLY)                                                                     \
     _APPLY(ntdll,                                        "ntdll"                              , USING_UNSAFE_LOAD ) \
     _APPLY(kernel32,                                     "kernel32"                           , USING_UNSAFE_LOAD ) \
+    _APPLY(dwmapi,                                       "dwmapi"                             , 0                 ) \
     _APPLY(psapi,                                        "psapi"                              , 0                 ) \
     _APPLY(pdh,                                          "pdh"                                , 0                 ) \
     _APPLY(version,                                      "version"                            , 0                 ) \
@@ -57,6 +59,7 @@
     _APPLY(LdrLoadDll,                                   ntdll                                         ) \
     _APPLY(RtlDllShutdownInProgress,                     ntdll                                         ) \
     _APPLY(RtlCutoverTimeToSystemTime,                   ntdll                                         ) \
+    _APPLY(NtCancelIoFile,                               ntdll                                         ) \
     _APPLY(AddDllDirectory,                              kernel32                                      ) \
     _APPLY(SystemFunction036,                            advapi32                                      )
 
