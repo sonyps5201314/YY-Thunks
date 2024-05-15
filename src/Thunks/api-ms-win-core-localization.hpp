@@ -16,6 +16,7 @@ namespace YY
 					LOCALE_ENUMPROCEX lpLocaleEnumProcEx;
 					DATEFMT_ENUMPROCEXEX lpDateFmtEnumProcExEx;
 					CALINFO_ENUMPROCEXEX pCalInfoEnumProcExEx;
+                    TIMEFMT_ENUMPROCEX pfnTimeFmtEnumProcEx;
 				};
 
 				union
@@ -492,6 +493,9 @@ namespace YY
 					{ L"wo", L"wo-SN" },
 					{ L"xh", L"xh-ZA" },
 					{ L"yo", L"yo-NG" },
+                    { L"zh", L"zh-CN" },
+                    { L"zh-CHS", L"zh-CN" },
+                    { L"zh-CHT", L"zh-HK" },
 					{ L"zh-Hans", L"zh-CN" },
 					{ L"zh-Hant", L"zh-HK" },
 					{ L"zu", L"zu-ZA" },
@@ -868,6 +872,7 @@ namespace YY
 					{ 0x0000703B, L"smn" },
 					{ 0x0000742C, L"az-Cyrl" },
 					{ 0x0000743B, L"sms" },
+                    { 0x00007804, L"zh" },
 					{ 0x00007814, L"nn" },
 					{ 0x0000782C, L"az-Latn" },
 					{ 0x0000783B, L"sma" },
@@ -1337,12 +1342,15 @@ namespace YY
 				{ L"xh-ZA", 0x00000434 },
 				{ L"yo", 0x0000006A },
 				{ L"yo-NG", 0x0000046A },
+                { L"zh", 0x00007804 },
+                { L"zh-CHS", 0x00000004 },
+                { L"zh-CHT", 0x00007C04 },
 				{ L"zh-CN", 0x00000804 },
 				{ L"zh-CN_stroke", 0x00020804 },
+                { L"zh-Hans", 0x00000004 },
+                { L"zh-Hant", 0x00007C04 },
 				{ L"zh-HK", 0x00000C04 },
 				{ L"zh-HK_radstr", 0x00040C04 },
-				{ L"zh-Hans", 0x00000004 },
-				{ L"zh-Hant", 0x00007C04 },
 				{ L"zh-MO", 0x00001404 },
 				{ L"zh-MO_radstr", 0x00041404 },
 				{ L"zh-MO_stroke", 0x00021404 },
@@ -2079,7 +2087,8 @@ namespace YY
 				}
 
 				//让字符串正常截断
-				pwszLanguagesBuffer[0] = L'\0';
+                if(pwszLanguagesBuffer)
+				    pwszLanguagesBuffer[0] = L'\0';
 				if(cchLanguagesBuffer >= 2)
 					pwszLanguagesBuffer[1] = L'\0';
 
@@ -2128,7 +2137,7 @@ namespace YY
 
 					if (dwFlags & MUI_MERGE_SYSTEM_FALLBACK)
 					{
-						for (; LangID = internal::DownlevelGetFallbackLocaleLCID(LangID);)
+						for (; LangID = (LANGID)internal::DownlevelGetFallbackLocaleLCID(LangID);)
 						{
 							internal::AddLangIDToBuffer(LanguageIds, _countof(LanguageIds), ulNumLanguages, LangID);
 						}
@@ -2142,7 +2151,7 @@ namespace YY
 					internal::AddLangIDToBuffer(LanguageIds, _countof(LanguageIds), ulNumLanguages, LangID);
 
 					
-					for (; LangID = internal::DownlevelGetFallbackLocaleLCID(LangID);)
+					for (; LangID = (LANGID)internal::DownlevelGetFallbackLocaleLCID(LangID);)
 					{
 						internal::AddLangIDToBuffer(LanguageIds, _countof(LanguageIds), ulNumLanguages, LangID);
 					}
@@ -2154,7 +2163,7 @@ namespace YY
 					internal::AddLangIDToBuffer(LanguageIds, _countof(LanguageIds), ulNumLanguages, LangID);
 
 					
-					for (; LangID = internal::DownlevelGetFallbackLocaleLCID(LangID);)
+					for (; LangID = (LANGID)internal::DownlevelGetFallbackLocaleLCID(LangID);)
 					{
 						internal::AddLangIDToBuffer(LanguageIds, _countof(LanguageIds), ulNumLanguages, LangID);
 					}
@@ -2229,7 +2238,7 @@ namespace YY
 
 						*pTmp++ = L'\0';
 
-						cchLanguagesBufferNeed = pTmp - pBuffer;
+						cchLanguagesBufferNeed = static_cast<ULONG>(pTmp - pBuffer);
 
 						*pcchLanguagesBuffer = cchLanguagesBufferNeed;
 
@@ -2258,7 +2267,7 @@ namespace YY
 
 								if (result <= LOCALE_NAME_MAX_LENGTH)
 								{
-									cchLanguagesBufferNeed += result;
+									cchLanguagesBufferNeed += static_cast<ULONG>(result);
 								}
 							}
 						}
@@ -2297,12 +2306,12 @@ namespace YY
 			void
 			)
 		{
-			if (auto const pGetThreadUILanguage = try_get_GetThreadUILanguage())
+			if (auto const _pfnGetThreadUILanguage = try_get_GetThreadUILanguage())
 			{
-				return pGetThreadUILanguage();
+				return _pfnGetThreadUILanguage();
 			}
 
-			return GetThreadLocale();
+			return (LANGID)GetThreadLocale();
 		}
 #endif
 
@@ -2399,6 +2408,314 @@ namespace YY
 
 			return 1;
 		}
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+
+		//Minimum supported client	Windows Vista [desktop apps | UWP apps]
+		//Minimum supported server	Windows Server 2008 [desktop apps | UWP apps]
+		__DEFINE_THUNK(
+		kernel32,
+		16,
+		BOOL,
+		WINAPI,
+		GetUserPreferredUILanguages,
+			_In_ DWORD dwFlags,
+			_Out_ PULONG pulNumLanguages,
+			_Out_writes_opt_(*pcchLanguagesBuffer) PZZWSTR pwszLanguagesBuffer,
+			_Inout_ PULONG pcchLanguagesBuffer
+			)
+		{
+			if (auto const _pfnGetUserPreferredUILanguages = try_get_GetUserPreferredUILanguages())
+			{
+				return _pfnGetUserPreferredUILanguages(dwFlags, pulNumLanguages, pwszLanguagesBuffer, pcchLanguagesBuffer);
+			}
+			
+            dwFlags &= ~(MUI_LANGUAGE_ID | MUI_LANGUAGE_NAME);
+            dwFlags |= MUI_MERGE_USER_FALLBACK;
+            return ::GetThreadPreferredUILanguages(dwFlags, pulNumLanguages, pwszLanguagesBuffer, pcchLanguagesBuffer);
+		}
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+
+		//Minimum supported client	Windows Vista [desktop apps | UWP apps]
+		//Minimum supported server	Windows Server 2008 [desktop apps | UWP apps]
+		__DEFINE_THUNK(
+		kernel32,
+		16,
+        BOOL,
+        WINAPI,
+        EnumTimeFormatsEx,
+            _In_ TIMEFMT_ENUMPROCEX _pfnTimeFmtEnumProcEx,
+            _In_opt_ LPCWSTR _szLocaleName,
+            _In_ DWORD _fFlags,
+            _In_ LPARAM _lParam
+			)
+		{
+			if (auto const _pfnEnumTimeFormatsEx = try_get_EnumTimeFormatsEx())
+			{
+				return _pfnEnumTimeFormatsEx(_pfnTimeFmtEnumProcEx, _szLocaleName, _fFlags, _lParam);
+			}
+            LSTATUS lStatus;
+
+            do
+            {
+                if (_pfnTimeFmtEnumProcEx == nullptr)
+                {
+                    lStatus = ERROR_INVALID_PARAMETER;
+                    break;
+                }
+
+                auto _Locale = LocaleNameToLCID(_szLocaleName, 0);
+
+                if (_Locale == 0)
+                {
+                    lStatus = ERROR_INVALID_PARAMETER;
+                    break;
+                }
+
+                TIMEFMT_ENUMPROCW _pfnTimeFmtEnumProc;
+                auto pFastCallbackInfo = internal::TryLockFastDownlevelCallbackInfo(_pfnTimeFmtEnumProcEx, _lParam);
+
+                if (pFastCallbackInfo)
+                {
+                    _pfnTimeFmtEnumProc = [](LPWSTR _szTimeFormatString)
+                    {
+                        auto pFastCallbackInfo = internal::GetFastDownlevelCallbackInfo();
+
+                        return pFastCallbackInfo->pfnTimeFmtEnumProcEx(_szTimeFormatString, pFastCallbackInfo->lParam);
+                    };
+                }
+                else
+                {
+#if defined(_X86_)
+                    constexpr const auto lParamOffset = 1;
+                    constexpr const auto pCallBackOffset = 10;
+
+                    static constexpr const byte ThunkData[] =
+                    {
+                        // _szTimeFormatString = 08h + 4h
+                        0x68, 0x00, 0x00, 0x00, 0x00,       // push    lParam                              ; lParam
+                        0xFF, 0x74, 0x24, 0x0C,             // push    dword ptr _szTimeFormatString[esp]  ; _szTimeFormatString
+
+                        0xB8, 0x00, 0x00, 0x00, 0x00,       // mov     eax, pfnTimeFmtEnumProcEx
+                        0xFF, 0xD0,                         // call    eax
+                        0xC2, 0x08, 0x00,                   // retn    4
+                    };
+#elif defined(_AMD64_)
+                    constexpr const auto lParamOffset = 2;
+                    constexpr const auto pCallBackOffset = 12;
+
+                    static constexpr const byte ThunkData[] =
+                    {
+                        // _szTimeFormatString = rcx
+                        0x48, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov     rdx, lParam
+
+                        0x48, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov     rax, pfnTimeFmtEnumProcEx
+                        0xFF, 0xE0,                                                 // jmp     rax
+                    };
+#endif
+
+                    auto pFun = (byte*)VirtualAlloc(nullptr, sizeof(ThunkData), MEM_COMMIT, PAGE_READWRITE);
+
+                    if (!pFun)
+                    {
+                        lStatus = ERROR_NOT_ENOUGH_MEMORY;
+                        break;
+                    }
+
+                    memcpy(pFun, ThunkData, sizeof(ThunkData));
+                    *(size_t*)(pFun + lParamOffset) = _lParam;
+                    *(size_t*)(pFun + pCallBackOffset) = (size_t)_pfnTimeFmtEnumProcEx;
+
+                    DWORD flOldProtect;
+                    VirtualProtect(pFun, sizeof(ThunkData), PAGE_EXECUTE_READ, &flOldProtect);
+
+                    _pfnTimeFmtEnumProc = (TIMEFMT_ENUMPROCW)pFun;
+                }
+
+                auto bSuccess = EnumTimeFormatsW(
+                    _pfnTimeFmtEnumProc,
+                    _Locale,
+                    _fFlags);
+
+                lStatus = bSuccess ? ERROR_SUCCESS : GetLastError();
+
+                if (pFastCallbackInfo)
+                {
+                    internal::UnlockFastDownlevelCallbackInfo(pFastCallbackInfo);
+                }
+                else
+                {
+                    VirtualFree(_pfnTimeFmtEnumProc, 0, MEM_RELEASE);
+                }
+            } while (false);
+
+            if (lStatus == ERROR_SUCCESS)
+            {
+                return TRUE;
+            }
+            else
+            {
+                SetLastError(lStatus);
+                return FALSE;
+            }
+		}
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+
+		//Minimum supported client	Windows Vista [desktop apps | UWP apps]
+		//Minimum supported server	Windows Server 2008 [desktop apps | UWP apps]
+		__DEFINE_THUNK(
+		kernel32,
+        28,
+        int,
+        WINAPI,
+        GetCalendarInfoEx,
+            _In_opt_ LPCWSTR _szLocaleName,
+            _In_ CALID _Calendar,
+            _In_opt_ LPCWSTR _szReserved,
+            _In_ CALTYPE _CalType,
+            _Out_writes_opt_(_cchData) LPWSTR _szCalData,
+            _In_ int _cchData,
+            _Out_opt_ LPDWORD _puValue
+			)
+		{
+			if (auto const _pfnGetCalendarInfoEx = try_get_GetCalendarInfoEx())
+			{
+				return _pfnGetCalendarInfoEx(_szLocaleName, _Calendar, _szReserved, _CalType, _szCalData, _cchData, _puValue);
+			}
+
+            const auto _Locale = LocaleNameToLCID(_szLocaleName, 0);
+
+            if (_Locale == 0)
+            {
+                return 0;
+            }
+
+            return GetCalendarInfoW(_Locale, _Calendar, _CalType, _szCalData, _cchData, _puValue);
+        }
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+
+		//Minimum supported client	Windows Vista [desktop apps | UWP apps]
+		//Minimum supported server	Windows Server 2008 [desktop apps | UWP apps]
+		__DEFINE_THUNK(
+		kernel32,
+        12,
+        BOOL,
+        WINAPI,
+        GetNLSVersionEx,
+            _In_	    NLS_FUNCTION _uFunction,
+            _In_opt_    LPCWSTR _szLocaleName,
+            _Inout_	    LPNLSVERSIONINFOEX _pVersionInformation
+			)
+		{
+			if (auto const _pfnGetNLSVersionEx = try_get_GetNLSVersionEx())
+			{
+				return _pfnGetNLSVersionEx(_uFunction, _szLocaleName, _pVersionInformation);
+			}
+            
+            if (_uFunction != COMPARE_STRING)
+            {
+                SetLastError(ERROR_INVALID_FLAGS);
+                return FALSE;
+            }
+
+            if (_pVersionInformation->dwNLSVersionInfoSize >= 12/*sizeof(NLSVERSIONINFO)*/)
+            {
+                memset(&_pVersionInformation->dwNLSVersionInfoSize + 1, 0, _pVersionInformation->dwNLSVersionInfoSize - sizeof(_pVersionInformation->dwNLSVersionInfoSize));
+                return TRUE;
+            }
+            else
+            {
+                SetLastError(ERROR_INSUFFICIENT_BUFFER);
+                return FALSE;
+            }     
+        }
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+
+		//Minimum supported client	Windows Vista [desktop apps | UWP apps]
+		//Minimum supported server	Windows Server 2008 [desktop apps | UWP apps]
+		__DEFINE_THUNK(
+		kernel32,
+        20,
+        BOOL,
+        WINAPI,
+        IsNLSDefinedString,
+            _In_  NLS_FUNCTION _uFunction,
+            _In_ DWORD _fFlags,
+            _In_ LPNLSVERSIONINFO _pVersionInformation,
+            _In_reads_(_cchStr) LPCWSTR _szString,
+            _In_ INT _cchStr
+			)
+		{
+			if (auto const _pfnIsNLSDefinedString = try_get_IsNLSDefinedString())
+			{
+				return _pfnIsNLSDefinedString(_uFunction, _fFlags, _pVersionInformation, _szString, _cchStr);
+			}
+
+            if (_uFunction != COMPARE_STRING)
+            {
+                SetLastError(ERROR_INVALID_FLAGS);
+                return FALSE;
+            }
+
+            if (_pVersionInformation->dwNLSVersionInfoSize < 12/*sizeof(NLSVERSIONINFO)*/)
+            {
+                SetLastError(ERROR_INSUFFICIENT_BUFFER);
+                return FALSE;
+            }
+
+            if (_cchStr < 0)
+                _cchStr = (int)wcslen(_szString);
+
+
+            for (; _cchStr;--_cchStr, ++_szString)
+            {
+                UINT16 _ch = *_szString;
+
+                if (_ch >= 0xe000u && _ch <= 0xf8ffu)
+                {
+                    return FALSE;
+                }
+
+                if (IS_LOW_SURROGATE(_ch))
+                    return FALSE;
+
+                if (IS_HIGH_SURROGATE(_ch))
+                {
+                    --_cchStr;
+                    ++_szString;
+                    if (_cchStr == 0)
+                        return FALSE;
+                    _ch = *_szString;
+
+                    if (!IS_LOW_SURROGATE(_ch))
+                        return FALSE;
+                    continue;
+                }
+
+                WORD _CharType;
+                if (GetStringTypeW(CT_CTYPE1, _szString, 1, &_CharType) && (_CharType & C1_DEFINED) == 0)
+                {
+                    return FALSE;
+                }
+            }
+
+            return TRUE;
+            
+        }
 #endif
 	}//namespace Thunks
 

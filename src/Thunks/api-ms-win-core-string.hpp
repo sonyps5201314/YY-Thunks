@@ -153,11 +153,11 @@ namespace YY
                         return 0;
                     }
 
-                    DWORD cchLength = min(__cchCount1, __cchCount2);
+                    size_t cchLength = min(__cchCount1, __cchCount2);
 
                     if (bIgnoreCase)
                     {
-                        for (DWORD Index = 0; Index != cchLength; ++Index)
+                        for (size_t Index = 0; Index != cchLength; ++Index)
                         {
                             auto ch1 = lpString1[Index];
                             auto ch2 = lpString2[Index];
@@ -180,7 +180,7 @@ namespace YY
                     }
                     else
                     {
-                        for (DWORD Index = 0; Index != cchLength; ++Index)
+                        for (size_t Index = 0; Index != cchLength; ++Index)
                         {
                             auto ch1 = lpString1[Index];
                             auto ch2 = lpString2[Index];
@@ -274,10 +274,7 @@ namespace YY
             static int s_iStat = 0;
             if (s_iStat == 0)
             {
-                const auto _uMajorVersion = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->OSMajorVersion;
-                const auto _uMinorVersion = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->OSMinorVersion;
-
-                s_iStat = internal::MakeVersion(_uMajorVersion, _uMinorVersion) >= internal::MakeVersion(5, 1) ? 1 : -1;
+                s_iStat = internal::GetSystemVersion() >= internal::MakeVersion(5, 1) ? 1 : -1;
             }
             return s_iStat == 1;
         }

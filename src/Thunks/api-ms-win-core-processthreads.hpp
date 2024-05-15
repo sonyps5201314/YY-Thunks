@@ -75,14 +75,27 @@ namespace YY
 			VOID
 			)
 		{
-			if (auto pGetCurrentProcessorNumber = try_get_GetCurrentProcessorNumber())
+			if (const auto _pfnGetCurrentProcessorNumber = try_get_GetCurrentProcessorNumber())
 			{
-				return pGetCurrentProcessorNumber();
+				return _pfnGetCurrentProcessorNumber();
 			}
 			else
 			{
-				//如果不支持此接口，那么假定是单核
-				return 0;
+                // Reference: https://www.cs.tcd.ie/Jeremy.Jones/GetCurrentProcessorNumberXP.htm
+                //
+                // The GetCurrentProcessorNumber() function is not available in XP. 
+                // Here is a VC++ version of the function that works with Windows XP on Intel x86 single, hyperthreaded, multicore 
+                // and multi-socket systems. It makes use of the APIC ID returned by the CPUID instruction. 
+                // This is in the range 0 .. N-1, where N is the number of logical CPUs.
+
+                __asm
+                {
+                    mov eax, 1
+                    cpuid
+                    shr ebx, 24
+                    // eax 返回值
+                    mov eax, ebx
+                }
 			}
 		}
 #endif
@@ -108,7 +121,7 @@ namespace YY
 			{
 				//不支持GetCurrentProcessorNumberEx时假定用户只有一组CPU
 				ProcNumber->Group = 0;
-				ProcNumber->Number = GetCurrentProcessorNumber();
+				ProcNumber->Number = static_cast<BYTE>(GetCurrentProcessorNumber());
 				ProcNumber->Reserved = 0;
 			}
 		}
@@ -787,7 +800,7 @@ namespace YY
 					return FALSE;
 				}
 
-				YY_ProcessPolicyInfo _Info = { _eMitigationPolicy };
+				YY_ProcessPolicyInfo _Info = { static_cast<DWORD>(_eMitigationPolicy) };
 				NTSTATUS _Status = _pfnNtQueryInformationProcess(_hProcess, YY_ProcessPolicy, &_Info, sizeof(_Info), nullptr);
 				if (_Status >= 0)
 				{
@@ -884,7 +897,7 @@ namespace YY
 					return FALSE;
 				}
 
-				YY_ProcessPolicyInfo _Info = { _eMitigationPolicy, *(DWORD*)_pBuffer };
+				YY_ProcessPolicyInfo _Info = { static_cast<DWORD>(_eMitigationPolicy), *(DWORD*)_pBuffer };
 				_Status = _pfnNtSetInformationProcess(NtCurrentProcess(), YY_ProcessPolicy, &_Info, sizeof(_Info));
 			}
 
@@ -1077,6 +1090,84 @@ namespace YY
 
 			return TRUE;
 		}
+#endif
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN7)
+
+		// 最低受支持的客户端	Windows 7 [桌面应用 |UWP 应用]
+        // 最低受支持的服务器	Windows Server 2008 R2[桌面应用 | UWP 应用]
+		__DEFINE_THUNK(
+		kernel32,
+		12,
+		BOOL,
+        WINAPI,
+        SetThreadIdealProcessorEx,
+            _In_ HANDLE _hThread,
+            _In_ PPROCESSOR_NUMBER _pIdealProcessor,
+            _Out_opt_ PPROCESSOR_NUMBER _pPreviousIdealProcessor
+			)
+		{
+			if (const auto _pfnSetThreadIdealProcessorEx = try_get_SetThreadIdealProcessorEx())
+			{
+				return _pfnSetThreadIdealProcessorEx(_hThread, _pIdealProcessor, _pPreviousIdealProcessor);
+			}
+
+            // 不支持的平台统一认为只有一组处理器
+            // 微软这里就没有检查 _pIdealProcessor
+            if (_pIdealProcessor->Group != 0 || _pIdealProcessor->Number >= MAXIMUM_PROCESSORS)
+            {
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return FALSE;
+            }
+
+            const auto _uPreviousIdealProcessor = SetThreadIdealProcessor(_hThread, _pIdealProcessor->Number);
+            if (_uPreviousIdealProcessor == static_cast<DWORD>(-1))
+            {
+                return FALSE;
+            }
+
+            if (_pPreviousIdealProcessor)
+            {
+                _pPreviousIdealProcessor->Group = 0;
+                _pPreviousIdealProcessor->Number = static_cast<BYTE>(_uPreviousIdealProcessor);
+                _pPreviousIdealProcessor->Reserved = 0;
+            }
+            return TRUE;
+        }
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN7)
+
+		// 最低受支持的客户端	Windows 7 [桌面应用 |UWP 应用]
+        // 最低受支持的服务器	Windows Server 2008 R2[桌面应用 | UWP 应用]
+		__DEFINE_THUNK(
+		kernel32,
+		8,
+		BOOL,
+        WINAPI,
+        GetThreadIdealProcessorEx,
+            _In_ HANDLE _hThread,
+            _Out_ PPROCESSOR_NUMBER _pIdealProcessor
+			)
+		{
+			if (const auto _pfnGetThreadIdealProcessorEx = try_get_GetThreadIdealProcessorEx())
+			{
+				return _pfnGetThreadIdealProcessorEx(_hThread, _pIdealProcessor);
+			}
+            
+            // 不支持的平台统一认为只有一组处理器
+            const auto _uPreviousIdealProcessor = SetThreadIdealProcessor(_hThread, MAXIMUM_PROCESSORS);
+            if (_uPreviousIdealProcessor == static_cast<DWORD>(-1))
+            {
+                return FALSE;
+            }
+
+            _pIdealProcessor->Group = 0;
+            _pIdealProcessor->Number = static_cast<BYTE>(_uPreviousIdealProcessor);
+            _pIdealProcessor->Reserved = 0;
+            return TRUE;
+        }
 #endif
 	}//namespace Thunks
 

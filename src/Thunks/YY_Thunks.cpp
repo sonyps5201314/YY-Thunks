@@ -5,12 +5,14 @@
 #define _YY_APPLY_TO_LATE_BOUND_MODULES(_APPLY)                                                                     \
     _APPLY(ntdll,                                        "ntdll"                              , USING_UNSAFE_LOAD ) \
     _APPLY(kernel32,                                     "kernel32"                           , USING_UNSAFE_LOAD ) \
+    _APPLY(crypt32,                                      "crypt32"                            , 0                 ) \
     _APPLY(dwmapi,                                       "dwmapi"                             , 0                 ) \
     _APPLY(psapi,                                        "psapi"                              , 0                 ) \
     _APPLY(pdh,                                          "pdh"                                , 0                 ) \
     _APPLY(version,                                      "version"                            , 0                 ) \
 	_APPLY(advapi32,                                     "advapi32"                           , 0                 ) \
 	_APPLY(bcrypt,                                       "bcrypt"                             , 0                 ) \
+	_APPLY(bcryptprimitives,                             "bcryptprimitives"                   , 0                 ) \
     _APPLY(user32,                                       "user32"                             , 0                 ) \
     _APPLY(ws2_32,                                       "ws2_32"                             , 0                 ) \
     _APPLY(shell32,                                      "shell32"                            , 0                 ) \
@@ -24,6 +26,7 @@
     _APPLY(bluetoothapis,                                "bluetoothapis"                      , 0                 ) \
     _APPLY(netapi32,                                     "netapi32"                           , 0                 ) \
     _APPLY(powrprof,                                     "powrprof"                           , 0                 ) \
+    _APPLY(api_ms_win_core_realtime_l1_1_1,              "api-ms-win-core-realtime-l1-1-1"    , 0                 ) \
     _APPLY(api_ms_win_core_winrt_l1_1_0,                 "api-ms-win-core-winrt-l1-1-0"       , 0                 ) \
     _APPLY(api_ms_win_core_winrt_string_l1_1_0,          "api-ms-win-core-winrt-string-l1-1-0", 0                 ) \
     _APPLY(api_ms_win_core_winrt_error_l1_1_0,           "api-ms-win-core-winrt-error-l1-1-0" , 0                 ) \
@@ -70,11 +73,21 @@
 #define YY_Thunks_Support_Version WDK_NTDDI_VERSION
 #endif
 
+#ifndef _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#endif
+
 #define _WINSOCKAPI_
 #define PSAPI_VERSION 1
 
 #if (YY_Thunks_Support_Version < NTDDI_WIN6)
 #define INITKNOWNFOLDERS
+#endif
+
+#ifndef __WarningMessage__
+#define STRING2(x) #x
+#define STRING(x) STRING2(x)
+#define __WarningMessage__(msg) __pragma(message (__FILE__ "(" STRING(__LINE__) "): warning Thunks: " # msg))
 #endif
 
 #define _Disallow_YY_KM_Namespace
@@ -159,10 +172,77 @@ namespace YY
 	{
 		namespace internal
 		{
-			__forceinline constexpr DWORD MakeVersion(DWORD _uMajorVersion, DWORD _uMinorVersion)
+            inline UINT8 __fastcall BitsCount(ULONG32 _fBitMask)
+            {
+#if defined(_M_IX86) || defined(_M_AMD64)
+                return static_cast<UINT8>(__popcnt(_fBitMask));
+#else
+                _fBitMask = (_fBitMask & 0x55555555) + ((_fBitMask >> 1) & 0x55555555);
+                _fBitMask = (_fBitMask & 0x33333333) + ((_fBitMask >> 2) & 0x33333333);
+                _fBitMask = (_fBitMask & 0x0f0f0f0f) + ((_fBitMask >> 4) & 0x0f0f0f0f);
+                _fBitMask = (_fBitMask & 0x00ff00ff) + ((_fBitMask >> 8) & 0x00ff00ff);
+                _fBitMask = (_fBitMask & 0x0000ffff) + ((_fBitMask >> 16) & 0x0000ffff);
+                return static_cast<UINT8>(_fBitMask);
+#endif
+            }
+
+            inline UINT8 __fastcall BitsCount(ULONG64 _fBitMask)
+            {
+#if defined(_M_IX86)
+                return static_cast<UINT8>(__popcnt(static_cast<ULONG32>(_fBitMask)) + __popcnt(static_cast<ULONG32>(_fBitMask >> 32)));
+#elif defined(_M_AMD64)
+                return static_cast<UINT8>(__popcnt64(_fBitMask));
+#else
+                _fBitMask = (_fBitMask & 0x55555555'55555555) + ((_fBitMask >> 1) & 0x55555555'55555555);
+                _fBitMask = (_fBitMask & 0x33333333'33333333) + ((_fBitMask >> 2) & 0x33333333'33333333);
+                _fBitMask = (_fBitMask & 0x0f0f0f0f'0f0f0f0f) + ((_fBitMask >> 4) & 0x0f0f0f0f'0f0f0f0f);
+                _fBitMask = (_fBitMask & 0x00ff00ff'00ff00ff) + ((_fBitMask >> 8) & 0x00ff00ff'00ff00ff);
+                _fBitMask = (_fBitMask & 0x0000ffff'0000ffff) + ((_fBitMask >> 16) & 0x0000ffff'0000ffff);
+                _fBitMask = (_fBitMask & 0x00000000'ffffffff) + ((_fBitMask >> 32) & 0x00000000'ffffffff);
+                return static_cast<UINT8>(_fBitMask);
+#endif
+            }
+
+			__forceinline constexpr DWORD __fastcall MakeVersion(_In_ DWORD _uMajorVersion, _In_ DWORD _uMinorVersion)
 			{
 				return (_uMajorVersion << 16) | _uMinorVersion;
 			}
+
+            __forceinline DWORD __fastcall GetSystemVersion()
+            {
+                const auto _pPeb = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock;
+                return internal::MakeVersion(_pPeb->OSMajorVersion, _pPeb->OSMinorVersion);
+            }
+
+            _Check_return_
+            _Ret_maybenull_
+            _Post_writable_byte_size_(_cbBytes)
+            static void* __fastcall Alloc(_In_ size_t _cbBytes)
+            {
+                return HeapAlloc(((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->ProcessHeap, 0, _cbBytes);
+            }
+
+            _Check_return_
+            _Ret_maybenull_
+            _Post_writable_byte_size_(_cbBytes)
+            static void* __fastcall ReAlloc(_Pre_maybenull_ _Post_invalid_ void* _pAddress, _In_ size_t _cbBytes)
+            {
+                auto _hProcessHeap = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->ProcessHeap;
+                if (_pAddress)
+                {
+                    return HeapReAlloc(_hProcessHeap, 0, _pAddress, _cbBytes);
+                }
+                else
+                {
+                    return HeapAlloc(_hProcessHeap, 0, _cbBytes);
+                }
+            }
+
+            static void __fastcall Free(_Pre_maybenull_ _Post_invalid_ void* _pAddress)
+            {
+                if(_pAddress)
+                    HeapFree(((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->ProcessHeap, 0, _pAddress);
+            }
 
 			//代码块，分割任务
 			template<class Callback, typename... Params>
@@ -225,13 +305,17 @@ namespace YY
 				const UINT CodePage = AreFileApisANSI() ? CP_ACP : CP_OEMCP;
 
 				auto cchDst = MultiByteToWideChar(CodePage, MB_ERR_INVALID_CHARS, Src, -1, pDst->Buffer, pDst->MaximumLength / sizeof(wchar_t));
-				if (cchDst == 0)
+				if (cchDst <= 0)
 				{
 					return GetLastError();
 				}
+                cchDst *= sizeof(wchar_t);
+                if (cchDst > MAXUINT16)
+                {
+                    return ERROR_BAD_PATHNAME;
+                }
 
-				pDst->Length = cchDst * sizeof(wchar_t);
-
+				pDst->Length = static_cast<USHORT>(cchDst);
 				return ERROR_SUCCESS;
 			}
 
@@ -352,6 +436,293 @@ namespace YY
 				_pId->Data4[7] = (CharToHex(_szInput[34]) << 4) | (CharToHex(_szInput[35]) << 0);
 				return TRUE;
 			}
+
+            template<typename Char1, typename Char2>
+            static bool __fastcall StringStartsWithI(_In_z_ const Char1* _szStr, _In_z_ const Char2* _szStartsWith, _Outptr_opt_result_z_ const Char1** _szEnd = nullptr)
+            {
+                if (_szEnd)
+                    *_szEnd = _szStr;
+
+                if (_szStr == (Char1*)_szStartsWith)
+                    return true;
+
+                if (_szStr == nullptr)
+                    return false;
+                if (_szStartsWith == nullptr)
+                    return false;
+
+                for (; *_szStartsWith;++_szStr, ++_szStartsWith)
+                {
+                    if (*_szStr == *_szStartsWith)
+                    {
+                        continue;
+                    }
+                    else if (__ascii_tolower(*_szStr) == __ascii_tolower(*_szStartsWith))
+                    {
+                        continue;
+                    }
+
+                    return false;
+                }
+                if (_szEnd)
+                    *_szEnd = _szStr;
+                return true;
+            }
+
+            template<typename Char>
+            static bool __fastcall StringToUint32(_In_z_ const Char* _szStr, _Out_ DWORD* _puResult, _Outptr_opt_result_z_ Char const** _pszEnd = nullptr)
+            {
+                auto _szEnd = _szStr;
+
+                if (_pszEnd)
+                    *_pszEnd = _szEnd;
+
+                *_puResult = 0;
+  
+                DWORD64 _uResult64 = 0;
+                for (;;++_szEnd)
+                {
+                    if (*_szEnd <= '9' && *_szEnd >= '0')
+                    {
+                        _uResult64 *= 10;
+                        _uResult64 += *_szEnd - '0';
+
+                        // 溢出
+                        if (_uResult64 > 0xFFFFFFFFull)
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (_szStr == _szEnd)
+                    return false;
+
+                *_puResult = static_cast<DWORD>(_uResult64);
+                if (_pszEnd)
+                    *_pszEnd = _szEnd;
+                return true;
+            }
+
+
+            template<typename Char>
+            class StringBuffer
+            {
+            public:
+                Char* szBuffer = nullptr;
+                size_t uLength = 0;
+                size_t uBufferLength = 0;
+                bool bCanFree = false;
+
+                constexpr StringBuffer()
+                    : bCanFree(true)
+                {
+                }
+
+                constexpr StringBuffer(StringBuffer&& _Other) noexcept
+                    : szBuffer(_Other.szBuffer)
+                    , uLength(_Other.uLength)
+                    , uBufferLength(_Other.uBufferLength)
+                    , bCanFree(_Other.bCanFree)
+                {
+                    _Other.szBuffer = nullptr;
+                    _Other.uLength = 0;
+                    _Other.uBufferLength = 0;
+                }
+
+
+                constexpr StringBuffer(Char* _szBuffer, size_t _uBufferLength)
+                    : szBuffer(_szBuffer)
+                    , uLength(0)
+                    , uBufferLength(_uBufferLength)
+                {
+                    if (uBufferLength)
+                    {
+                        *szBuffer = '\0';
+                    }
+                }
+
+                StringBuffer(const StringBuffer&) = delete;
+
+                ~StringBuffer()
+                {
+                    if (bCanFree)
+                    {
+                        internal::Free(szBuffer);
+                    }
+                }
+
+                template<typename Char2>
+                bool __fastcall AppendString(_In_z_ const Char2* _szSrc)
+                {
+                    if (_szSrc == nullptr || *_szSrc == '\0')
+                        return true;
+
+                    TryBuy(128);
+
+                    if (uLength == uBufferLength)
+                        return false;
+
+                    for (auto _uLengthNew = uLength; _uLengthNew != uBufferLength; ++_uLengthNew, ++_szSrc)
+                    {
+                        szBuffer[_uLengthNew] = *_szSrc;
+                        if (*_szSrc == '\0')
+                        {
+                            uLength = _uLengthNew;
+                            return true;
+                        }
+                        TryBuy();
+                    }
+
+                    szBuffer[uLength] = '\0';
+                    return false;
+                }
+
+                template<typename Char2>
+                bool __fastcall AppendChar(_In_z_ Char2 _Ch)
+                {
+                    if (_Ch == '\0')
+                        return true;
+                    TryBuy();
+                    const auto _uNew = uLength + 1;
+                    if (_uNew >= uBufferLength)
+                        return false;
+                    szBuffer[uLength] = _Ch;
+                    szBuffer[_uNew] = '\0';
+                    uLength = _uNew;
+                    return true;
+                }
+
+                bool __fastcall AppendUint32(_In_ DWORD _uAppdendData)
+                {
+                    TryBuy(32);
+
+                    if (uLength == uBufferLength)
+                        return false;
+
+                    auto _uLengthNew = uLength;
+                    for(; _uLengthNew != uBufferLength;)
+                    {
+                        const auto _uData = _uAppdendData % 10;
+                        _uAppdendData /= 10;
+
+                        szBuffer[_uLengthNew] = static_cast<Char>('0' + _uData);
+                        ++_uLengthNew;
+                        if (_uAppdendData == 0)
+                        {
+                            if (_uLengthNew == uBufferLength)
+                            {
+                                break;
+                            }
+                            szBuffer[_uLengthNew] = '\0';
+                            auto _szStart = szBuffer + uLength;
+                            auto _szLast = szBuffer + _uLengthNew;
+
+                            for (; _szStart < _szLast;)
+                            {
+                                --_szLast;
+                                const auto _ch = *_szLast;
+                                *_szLast = *_szStart;
+                                *_szStart = _ch;
+
+                                ++_szStart;
+                            }
+                            uLength = _uLengthNew;
+                            return true;
+                        }
+                    }
+
+                    *szBuffer = '\0';
+                    return false;
+                }
+
+                _Ret_z_ const Char* __fastcall GetC_String() const
+                {
+                    return szBuffer ? szBuffer : (Char*)L"";
+                }
+
+                _Ret_maybenull_ Char* __fastcall GetBuffer(size_t _cNewBufferLength)
+                {
+                    // 字符串有一个末尾 0
+                    ++_cNewBufferLength;
+                    if (uBufferLength > _cNewBufferLength)
+                        return szBuffer;
+
+                    if (!bCanFree)
+                        return nullptr;
+
+                    auto _szNewBuffer = (Char*)internal::ReAlloc(szBuffer, _cNewBufferLength);
+                    if (!_szNewBuffer)
+                        return nullptr;
+
+                    szBuffer = _szNewBuffer;
+                    uBufferLength = _cNewBufferLength;
+                    return _szNewBuffer;
+                }
+
+                void __fastcall SetLength(size_t _cNewLength)
+                {
+                    if (_cNewLength == uLength)
+                    {
+                        return;
+                    }
+                    else if (uBufferLength <= _cNewLength)
+                    {
+                        __debugbreak();
+                        return;
+                    }
+
+                    uLength = _cNewLength;
+                    szBuffer[uLength] = '\0';
+                }
+
+                void TryBuy(DWORD _uAppdendData = 1)
+                {
+                    if (bCanFree ==false || _uAppdendData == 0)
+                        return;
+
+                    auto _uNew = uLength + _uAppdendData;
+                    if (_uNew >= uBufferLength)
+                    {
+                        GetBuffer(max(uBufferLength * 2, _uNew));
+                    }
+                }
+            };
+
+            static LSTATUS Convert(_In_NLS_string_(_cchSrc) LPCWSTR _szSrc, _In_ int _cchSrc, StringBuffer<char>* _pBuffer)
+            {
+                _pBuffer->SetLength(0);
+                if (_cchSrc == 0)
+                    return ERROR_SUCCESS;
+
+                if (_cchSrc < 0)
+                {
+                    const auto _cchLength = _szSrc ? wcslen(_szSrc) : size_t(0);
+                    if(_cchLength > MAXINT32)
+                        return ERROR_NOT_ENOUGH_MEMORY;
+
+                    _cchSrc = static_cast<int>(_cchLength);
+                    if (_cchSrc == 0)
+                        return ERROR_SUCCESS;
+                }
+
+                const auto _cchDst = WideCharToMultiByte(CP_ACP, 0, _szSrc, _cchSrc, nullptr, 0, nullptr, nullptr);
+                if (_cchDst > 0)
+                {
+                    auto _szDst = _pBuffer->GetBuffer(_cchDst);
+                    if (!_szDst)
+                        return ERROR_NOT_ENOUGH_MEMORY;
+
+                    WideCharToMultiByte(CP_ACP, 0, _szSrc, _cchSrc, _szDst, _cchDst, nullptr, nullptr);
+                    _pBuffer->SetLength(_cchDst);
+                }
+                return ERROR_SUCCESS;
+            }
+
 		}
 	}//namespace Thunks
 
@@ -363,6 +734,7 @@ namespace YY
 #define YY_Thunks_Implemented
 #define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)     \
     _LCRT_DEFINE_IAT_SYMBOL(_FUNCTION, _SIZE);                                     \
+    _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE);                 \
     EXTERN_C _RETURN_ _CONVENTION_ _FUNCTION(__VA_ARGS__)
 
 #include "YY_Thunks_List.hpp"

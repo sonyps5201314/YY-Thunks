@@ -34,6 +34,7 @@
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>false</UseOfMfc>
+    <EnableASAN>true</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -49,6 +50,7 @@
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <UseOfMfc>false</UseOfMfc>
+    <EnableASAN>true</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -100,6 +102,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <TreatSpecificWarningsAsErrors>4715;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -118,6 +121,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <TreatSpecificWarningsAsErrors>4715;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -134,6 +138,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <TreatSpecificWarningsAsErrors>4715;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -152,6 +157,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <TreatSpecificWarningsAsErrors>4715;%(TreatSpecificWarningsAsErrors)</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -176,12 +182,14 @@
     <ClCompile Include="api-ms-win-core-path.UnitTest.cpp" />
     <ClCompile Include="api-ms-win-core-synch.UnitTest.cpp" />
     <ClCompile Include="api-ms-win-core-threadpool.UnitTest.cpp" />
+    <ClCompile Include="shell32.UnitTest.cpp" />
     <ClCompile Include="weak.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="WS2_32.UintTest.cpp" />
     <ClCompile Include="YY-Thunks.UnitTest.cpp" />
     <ClCompile Include="..\Thunks\YY_Thunks.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
@@ -193,11 +201,15 @@
   <ItemGroup>
     <ClInclude Include="..\Thunks\api-ms-win-core-com.hpp" />
     <ClInclude Include="..\Thunks\api-ms-win-core-kernel32-legacy.hpp" />
+    <ClInclude Include="..\Thunks\api-ms-win-core-processtopology.hpp" />
     <ClInclude Include="..\Thunks\api-ms-win-core-rtlsupport.hpp" />
+    <ClInclude Include="..\Thunks\api-ms-win-core-xstate.hpp" />
     <ClInclude Include="..\Thunks\api-ms-win-eventing-provider.hpp" />
     <ClInclude Include="..\Thunks\api-ms-win-power-base.hpp" />
     <ClInclude Include="..\Thunks\bcrypt.hpp" />
+    <ClInclude Include="..\Thunks\BCryptPrimitives.hpp" />
     <ClInclude Include="..\Thunks\bluetoothapis.hpp" />
+    <ClInclude Include="..\Thunks\Crypt32.hpp" />
     <ClInclude Include="..\Thunks\dwmapi.hpp" />
     <ClInclude Include="..\Thunks\ext-ms-win-ntuser-powermanagement.hpp" />
     <ClInclude Include="..\Thunks\ext-ms-win-ntuser-window.hpp" />

@@ -69,6 +69,12 @@
     <ClCompile Include="weak.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="shell32.UnitTest.cpp">
+      <Filter>源文件\UnitTest</Filter>
+    </ClCompile>
+    <ClCompile Include="WS2_32.UintTest.cpp">
+      <Filter>源文件\UnitTest</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -231,6 +237,18 @@
       <Filter>Thunks</Filter>
     </ClInclude>
     <ClInclude Include="..\Thunks\dwmapi.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\BCryptPrimitives.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\api-ms-win-core-processtopology.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\api-ms-win-core-xstate.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\Crypt32.hpp">
       <Filter>Thunks</Filter>
     </ClInclude>
   </ItemGroup>

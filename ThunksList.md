@@ -2,7 +2,7 @@
 
 此表展示了YY-Thunks（鸭船）可以解决的函数不存在问题，欢迎大家扩充！
 
-> 开头带`*`的函数并不建议使用，仅用于编译通过处理，如果使用可能导致老版本系统无法充分发挥性能。
+> 开头带`*`的函数并不建议使用，存在一些较大负面影响，仅用于编译通过处理，具体负面影响可参考注释内容。
 
 ## api-ms-win-core-path-l1-1-0.dll
 | 函数                                       | Fallback
@@ -29,6 +29,13 @@
 | PathCchStripPrefix                         | 内部实现。
 | PathAllocCombine                           | 不存在时，调用PathCchCombineEx。
 | PathAllocCanonicalize                      | 不存在时，调用PathCchCanonicalizeEx。
+
+## api-ms-win-core-realtime-l1-1-1.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| QueryUnbiasedInterruptTimePrecise          | 不存在时，调用QueryUnbiasedInterruptTime。
+| QueryInterruptTime                         | 不存在时，读取KUSER_SHARED_DATA::InterruptTime值。
+| QueryInterruptTimePrecise                  | 不存在时，读取KUSER_SHARED_DATA::InterruptTime值。
 
 ## api-ms-win-core-winrt-l1-1-0.dll
 | 函数                                       | Fallback
@@ -72,13 +79,35 @@
 | RegGetValueW(A)                            | 不存在时，调用RegQueryValueExW(A)。
 | RegCopyTreeW(A)                            | 不存在时，调用SHCopyKeyW(A)。
 | EventSetInformation                        | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventActivityIdControl                     | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventRegister                              | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventUnregister                            | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EnumerateTraceGuidsEx                      | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventEnabled                               | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventWrite                                 | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventWriteTransfer                         | 不存在时，返回ERROR_NOT_SUPPORTED。
+| EventWriteEx                               | 不存在时，调用EventWriteTransfer。
+| EventWriteString                           | 不存在时，返回ERROR_NOT_SUPPORTED。
+| GetDynamicTimeZoneInformationEffectiveYears| 不存在时，直接读取`Time Zones`注册表。
 
 ## bcrypt.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
-| BCryptOpenAlgorithmProvider                | 内部实现。
-| BCryptCloseAlgorithmProvider               | 内部实现。
-| BCryptGenRandom                            | 不存在时调用，RtlGenRandom。
+| BCryptOpenAlgorithmProvider                | 不存在时，调用CryptAcquireContextW。
+| BCryptCloseAlgorithmProvider               | 不存在时，调用CryptReleaseContext。
+| BCryptGenRandom                            | 不存在时，调用RtlGenRandom。
+| BCryptGetProperty                          | 不存在时，内部实现。
+| BCryptCreateHash                           | 不存在时，调用CryptCreateHash。
+| BCryptDestroyHash                          | 不存在时，调用CryptDestroyHash。
+| BCryptHashData                             | 不存在时，调用CryptHashData。
+| BCryptFinishHash                           | 不存在时，调用CryptGetHashParam。
+| BCryptDeriveKeyPBKDF2                      | 不存在时，调用CryptCreateHash、CryptHashData。
+| BCryptDeriveKeyCapi                        | 不存在时，调用CryptCreateHash、CryptHashData。
+
+## bcryptprimitives.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| ProcessPrng                                | 不存在时调用，RtlGenRandom。
 
 ## bluetoothapis.dll
 | 函数                                       | Fallback
@@ -91,19 +120,38 @@
 | BluetoothGATTSetCharacteristicValue        | 不存在时，返回ERROR_NOT_SUPPORTED。
 | BluetoothGATTSetDescriptorValue            | 不存在时，返回ERROR_NOT_SUPPORTED。
 
+## Crypt32.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| CryptProtectMemory                         | 不存在时，返回TRUE。
+| CryptUnprotectMemory                       | 不存在时，返回TRUE。
+
 ## dwmapi.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
 | DwmEnableBlurBehindWindow                  | 不存在时，返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用）。
+| DwmIsCompositionEnabled                    | 不存在时，总是返回组合层已关闭。
+| DwmEnableComposition                       | 不存在时，如果尝试开启组合，那么返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用），其他情况返回 S_OK_。
+| DwmExtendFrameIntoClientArea               | 不存在时，返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用）。
+| DwmDefWindowProc                           | 不存在时，返回 FALSE。
+| DwmGetColorizationColor                    | 不存在时，返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用）。
+| DwmGetWindowAttribute                      | 不存在时，返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用）。
+| DwmSetWindowAttribute                      | 不存在时，返回 `DWM_E_COMPOSITIONDISABLED`（表示DWM已禁用）。
+| DwmFlush                                   | 不存在时，返回 `S_OK_`。
 
 ## iphlpapi.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
-| GetIfTable2                                | 不存在时调用，GetIfTable，并使用HeapAlloc申请内存。
-| GetIfTable2Ex                              | 不存在时调用，GetIfTable，并使用HeapAlloc申请内存。
-| GetIfEntry2                                | 不存在时调用，GetIfEntry。
-| GetIfEntry2Ex                              | 不存在时调用，GetIfEntry2。
-| FreeMibTable                               | 不存在时调用，HeapFree。
+| GetIfTable2                                | 不存在时，调用GetIfTable，并使用HeapAlloc申请内存。
+| GetIfTable2Ex                              | 不存在时，调用GetIfTable，并使用HeapAlloc申请内存。
+| GetIfEntry2                                | 不存在时，调用GetIfEntry。
+| GetIfEntry2Ex                              | 不存在时，调用GetIfEntry2。
+| FreeMibTable                               | 不存在时，调用HeapFree。
+| ConvertInterfaceIndexToLuid                | 不存在时，调用GetIfEntry。
+| ConvertInterfaceLuidToNameW(A)             | 不存在时，内部实现。
+| ConvertInterfaceNameToLuidW(A)             | 不存在时，内部实现。
+| if_nametoindex                             | 不存在时，调用GetIfEntry。
+| if_indextoname                             | 不存在时，调用ConvertInterfaceIndexToLuid、ConvertInterfaceLuidToNameA。
 
 ## kernel32.dll
 | 函数                                       | Fallback
@@ -163,6 +211,9 @@
 | K32GetPerformanceInfo                      | 调用GetPerformanceInfo。
 | K32EnumPageFilesW(A)                       | 调用EnumPageFilesW(A)。
 | K32GetProcessImageFileNameW(A)             | 调用GetProcessImageFileNameW(A)。
+| K32GetProcessMemoryInfo                    | 调用GetProcessMemoryInfo。
+| K32EnumProcesses                           | 调用EnumProcesses。
+| K32GetModuleInformation                    | 调用GetModuleInformation。
 | QueryFullProcessImageNameW(A)              | 不存在时，调用GetProcessImageFileNameW(A) 或者 GetModuleFileNameExW(A)。
 | CreateFile2                                | 不存在时，调用CreateFileW。
 | CreateEventExW(A)                          | 不存在时，调用CreateEventW(A)。
@@ -191,14 +242,14 @@
 | WaitOnAddress                              | 不存在时，调用NtWaitForKeyedEvent。警告，此函数请勿跨模块使用！！！
 | WakeByAddressSingle                        | 不存在时，调用NtReleaseKeyedEvent。警告，此函数请勿跨模块使用！！！
 | WakeByAddressAll                           | 不存在时，调用NtReleaseKeyedEvent。警告，此函数请勿跨模块使用！！！
-| *GetCurrentProcessorNumber                 | 不存在时，返回0。
-| *GetCurrentProcessorNumberEx               | 不存在时，调用GetCurrentProcessorNumber。
-| *GetNumaNodeProcessorMask                  | 不存在时，假定所有CPU都在当前Numa。
-| *GetNumaNodeProcessorMaskEx                | 不存在时，调用GetNumaNodeProcessorMask。
-| *GetThreadGroupAffinity                    | 不存在时，调用NtQueryInformationThread。
-| *SetThreadGroupAffinity                    | 不存在时，调用SetThreadAffinityMask。
-| *CancelIoEx                                | 不存在时，调用CancelIo（会把此句柄的所有IO操作取消掉！）。
-| *CancelSynchronousIo                       | 不存在时，仅返回失败。
+| GetCurrentProcessorNumber                  | 不存在时，调用cpuid。
+| GetCurrentProcessorNumberEx                | 不存在时，调用GetCurrentProcessorNumber。
+| GetNumaNodeProcessorMask                   | 不存在时，假定所有CPU都在当前Numa。
+| GetNumaNodeProcessorMaskEx                 | 不存在时，调用GetNumaNodeProcessorMask。
+| GetThreadGroupAffinity                     | 不存在时，调用NtQueryInformationThread。
+| SetThreadGroupAffinity                     | 不存在时，调用SetThreadAffinityMask。
+| *CancelIoEx                                | 不存在时，调用CancelIo。警告，会把此句柄的所有IO操作取消掉！
+| *CancelSynchronousIo                       | 不存在时，仅返回失败。警告，实际无法取消！
 | OpenFileById                               | 不存在时，调用NtCreateFile。
 | CreateSymbolicLinkW(A)                     | 不存在时，返回FALSE，并设置 LastError = ERROR_INVALID_FUNCTION。
 | ReOpenFile                                 | 不存在时，调用NtCreateFile。
@@ -298,6 +349,27 @@
 | SetFileCompletionNotificationModes         | 不存在时，什么也不做。
 | GetQueuedCompletionStatusEx                | 不存在时，调用 GetQueuedCompletionStatus。
 | FindFirstFileEx(W/A)                       | Windows XP、Vista兼容 FIND_FIRST_EX_LARGE_FETCH、FindExInfoStandard参数。
+| GetProcessGroupAffinity                    | 不存在时，始终认为只有一组CPU。
+| QueryUnbiasedInterruptTime                 | 不存在时，读取KUSER_SHARED_DATA::InterruptTime值模拟UnbiasedInterruptTime。
+| FindStringOrdinal                          | 不存在时，调用CompareStringOrdinal。
+| GetEnabledXStateFeatures                   | 不存在时，调用IsProcessorFeaturePresent。
+| SetXStateFeaturesMask                      | 不存在时，内部实现。
+| InitializeContext                          | 不存在时，内部实现。
+| InitializeContext2                         | 不存在时，调用InitializeContext。
+| LocateXStateFeature                        | 不存在时，内部实现。
+| CopyContext                                | 不存在时，内部实现。
+| QueryIdleProcessorCycleTimeEx              | 不存在时，调用QueryIdleProcessorCycleTime。
+| QueryIdleProcessorCycleTime                | 不存在时，调用NtQuerySystemInformation。
+| SetThreadIdealProcessorEx                  | 不存在时，调用SetThreadIdealProcessor。
+| GetThreadIdealProcessorEx                  | 不存在时，调用SetThreadIdealProcessor。
+| GetUserPreferredUILanguages                | 不存在时，调用GetThreadPreferredUILanguages。
+| EnumTimeFormatsEx                          | 不存在时，调用EnumTimeFormatsW。
+| GetCalendarInfoEx                          | 不存在时，调用GetCalendarInfoW。
+| GetNLSVersionEx                            | 不存在时，返回一个假版本。
+| IsNLSDefinedString                         | 不存在时，调用GetStringTypeW。
+| SetProcessWorkingSetSizeEx                 | 不存在时，调用SetProcessWorkingSetSize。
+| GetProcessWorkingSetSizeEx                 | 不存在时，调用GetProcessWorkingSetSize。
+| GetTimeZoneInformationForYear              | 不存在时，直接读取`Time Zones`注册表。
 
 ## mfplat.dll
 | 函数                                       | Fallback
@@ -424,3 +496,9 @@
 | InetPtonW(inet_pton)                       | 不存在时，类似于sscanf手工分析字符串。
 | InetNtopW(inet_ntop)                       | 不存在时，类似于sprintf手工生成字符串。
 | WSAPoll                                    | 不存在时，调用select。
+| GetAddrInfoExCancel                        | 不存在时，使用线程模拟。
+| GetAddrInfoExW(A)                          | 不存在时，调用GetAddrInfoW(A)。
+| GetAddrInfoExOverlappedResult              | 不存在时，内部实现。
+| FreeAddrInfoEx(W)                          | 不存在时，内部实现。
+| GetAddrInfoW                               | 不存在时，调用getaddrinfo。
+| FreeAddrInfoW                              | 不存在时，内部实现。

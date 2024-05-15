@@ -509,7 +509,7 @@ namespace YY
 
 				if (dwLoadLibrarySearchFlags & LOAD_LIBRARY_SEARCH_APPLICATION_DIR)
 				{
-					const auto nBufferMax = _countof(szFilePathBuffer) - nSize;
+					const DWORD nBufferMax = _countof(szFilePathBuffer) - nSize;
 
 					auto nBuffer = GetModuleFileNameW(NULL, szFilePathBuffer + nSize, nBufferMax);
 
@@ -544,7 +544,7 @@ namespace YY
 
 				if (dwLoadLibrarySearchFlags & LOAD_LIBRARY_SEARCH_SYSTEM32)
 				{
-					const auto nBufferMax = _countof(szFilePathBuffer) - nSize;
+					const DWORD nBufferMax = _countof(szFilePathBuffer) - nSize;
 
 					auto nBuffer = GetSystemDirectoryW(szFilePathBuffer + nSize, nBufferMax);
 
@@ -563,8 +563,14 @@ namespace YY
 				ModuleFileName.Buffer = (PWSTR)lpLibFileName;
 
 				for (; *lpLibFileName; ++lpLibFileName);
+                const auto _uNewLength = (lpLibFileName - ModuleFileName.Buffer) * sizeof(lpLibFileName[0]);
+                if (_uNewLength + sizeof(lpLibFileName[0]) > MAXUINT16)
+                {
+                    SetLastError(ERROR_INVALID_PARAMETER);
+                    return nullptr;
+                }
 
-				ModuleFileName.Length = (lpLibFileName - ModuleFileName.Buffer) * sizeof(lpLibFileName[0]);
+				ModuleFileName.Length = static_cast<USHORT>(_uNewLength);
 				ModuleFileName.MaximumLength = ModuleFileName.Length + sizeof(lpLibFileName[0]);
 
 				HMODULE hModule = NULL;
@@ -736,6 +742,103 @@ namespace YY
 
 			// WinXP不支持MUI，故而忽略 _dwFlags、_LangId
 			return EnumResourceLanguagesA(_hModule, _lpType, _lpName, _lpEnumFunc, _lParam);
+		}
+#endif
+
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN7)
+
+		// 最低受支持的客户端	Windows 7 [桌面应用 |UWP 应用]
+        // 最低受支持的服务器	Windows Server 2008 R2[桌面应用 | UWP 应用]
+		__DEFINE_THUNK(
+		kernel32,
+		24,
+        int,
+        WINAPI,
+        FindStringOrdinal,
+            _In_ DWORD _uFindStringOrdinalFlags,
+            _In_reads_(_cchSource) LPCWSTR _pStringSource,
+            _In_ int _cchSource,
+            _In_reads_(_cchValue) LPCWSTR _pStringValue,
+            _In_ int _cchValue,
+            _In_ BOOL _bIgnoreCase
+			)
+		{
+			if (const auto _pfnFindStringOrdinal = try_get_FindStringOrdinal())
+			{
+				return _pfnFindStringOrdinal(_uFindStringOrdinalFlags, _pStringSource, _cchSource, _pStringValue, _cchValue, _bIgnoreCase);
+			}
+
+            SetLastError(ERROR_SUCCESS);
+            if (_pStringSource == nullptr || _cchSource < -1 || _pStringValue == nullptr || _cchValue < -1)
+            {
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return -1;
+            }
+
+            if (_cchSource == -1)
+            {
+                _cchSource = (int)wcslen(_pStringSource);
+            }
+
+            if (_cchSource == 0)
+            {
+                return -1;
+            }
+
+            if (_cchValue == -1)
+            {
+                _cchValue = (int)wcslen(_pStringValue);
+            }
+
+            if (_cchValue == 0 || _cchValue > _cchSource)
+            {
+                return -1;
+            }
+
+            switch (_uFindStringOrdinalFlags)
+            {
+            case 0:
+            case FIND_FROMSTART:
+                for (auto _pStart = _pStringSource; _cchValue <= _cchSource;++_pStart, --_cchSource)
+                {
+                    if (CompareStringOrdinal(_pStart, _cchValue, _pStringValue, _cchValue, _bIgnoreCase) == CSTR_EQUAL)
+                    {
+                        return static_cast<int>(_pStart - _pStringSource);
+                    }
+                }
+                return -1;
+                break;
+            case FIND_FROMEND:
+                for (auto _pStart = _pStringSource + _cchSource - _cchValue; _cchValue <= _cchSource; --_pStart, --_cchSource)
+                {
+                    if (CompareStringOrdinal(_pStart, _cchValue, _pStringValue, _cchValue, _bIgnoreCase) == CSTR_EQUAL)
+                    {
+                        return static_cast<int>(_pStart - _pStringSource);
+                    }
+                }
+                return -1;
+                break;
+            case FIND_STARTSWITH:
+                if (CompareStringOrdinal(_pStringSource, _cchValue, _pStringValue, _cchValue, _bIgnoreCase) == CSTR_EQUAL)
+                {
+                    return 0;
+                }
+                return -1;
+                break;
+            case FIND_ENDSWITH:
+                _cchSource -= _cchValue;
+                if (CompareStringOrdinal(_pStringSource + _cchSource, _cchValue, _pStringValue, _cchValue, _bIgnoreCase) == CSTR_EQUAL)
+                {
+                    return _cchSource;
+                }
+                return -1;
+                break;
+            default:
+                SetLastError(ERROR_INVALID_FLAGS);
+                return -1;
+                break;
+            }
 		}
 #endif
 	}
