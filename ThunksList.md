@@ -37,6 +37,33 @@
 | QueryInterruptTime                         | 不存在时，读取KUSER_SHARED_DATA::InterruptTime值。
 | QueryInterruptTimePrecise                  | 不存在时，读取KUSER_SHARED_DATA::InterruptTime值。
 
+## api-ms-win-core-threadpool-l1-2-0.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| CreateThreadpoolWork                       | 不存在时，内部实现。
+| CloseThreadpoolWork                        | 不存在时，内部实现。
+| TrySubmitThreadpoolCallback                | 不存在时，调用QueueUserWorkItem。
+| SubmitThreadpoolWork                       | 不存在时，调用QueueUserWorkItem。
+| WaitForThreadpoolWorkCallbacks             | 不存在时，内部实现。
+| CreateThreadpoolTimer                      | 不存在时，内部实现。
+| CloseThreadpoolTimer                       | 不存在时，调用DeleteTimerQueueTimer。
+| SetThreadpoolTimer                         | 不存在时，调用CreateTimerQueueTimer。
+| WaitForThreadpoolTimerCallbacks            | 不存在时，调用WaitForSingleObject。
+| SetEventWhenCallbackReturns                | 不存在时，内部实现。
+| ReleaseSemaphoreWhenCallbackReturns        | 不存在时，内部实现。
+| ReleaseMutexWhenCallbackReturns            | 不存在时，内部实现。
+| LeaveCriticalSectionWhenCallbackReturns    | 不存在时，内部实现。
+| FreeLibraryWhenCallbackReturns             | 不存在时，内部实现。
+| CreateThreadpoolWait                       | 不存在时，内部实现。
+| CloseThreadpoolWait                        | 不存在时，调用UnregisterWait。
+| SetThreadpoolWait                          | 不存在时，调用RegisterWaitForSingleObject。
+| WaitForThreadpoolWaitCallbacks             | 不存在时，调用WaitForSingleObject。
+| CreateThreadpoolIo                         | 不存在时，调用BindIoCompletionCallback。
+| CloseThreadpoolIo                          | 不存在时，内部实现。
+| StartThreadpoolIo                          | 不存在时，内部实现。
+| CancelThreadpoolIo                         | 不存在时，内部实现。
+| WaitForThreadpoolIoCallbacks               | 不存在时，调用WaitForSingleObject。
+
 ## api-ms-win-core-winrt-l1-1-0.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
@@ -93,16 +120,23 @@
 ## bcrypt.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
-| BCryptOpenAlgorithmProvider                | 不存在时，调用CryptAcquireContextW。
+| BCryptOpenAlgorithmProvider                | 不存在时，调用CryptAcquireContextW。目前支持的算法有：RC2、RC4、AES、DES、3DES、3DES-112、MD2、MD4、MD5、SHA1、SHA256、SHA384、SHA512、RNG、FIPS186DSARNG、DUALECRNG。
 | BCryptCloseAlgorithmProvider               | 不存在时，调用CryptReleaseContext。
 | BCryptGenRandom                            | 不存在时，调用RtlGenRandom。
-| BCryptGetProperty                          | 不存在时，内部实现。
+| BCryptGetProperty                          | 不存在时，调用CryptGetKeyParam。
+| BCryptSetProperty                          | 不存在时，调用CryptSetKeyParam。
 | BCryptCreateHash                           | 不存在时，调用CryptCreateHash。
 | BCryptDestroyHash                          | 不存在时，调用CryptDestroyHash。
 | BCryptHashData                             | 不存在时，调用CryptHashData。
 | BCryptFinishHash                           | 不存在时，调用CryptGetHashParam。
-| BCryptDeriveKeyPBKDF2                      | 不存在时，调用CryptCreateHash、CryptHashData。
-| BCryptDeriveKeyCapi                        | 不存在时，调用CryptCreateHash、CryptHashData。
+| BCryptDeriveKeyPBKDF2                      | 不存在时，调用BCryptHashData。
+| BCryptDeriveKeyCapi                        | 不存在时，调用BCryptHashData。
+| BCryptEncrypt                              | 不存在时，调用CryptEncrypt。
+| BCryptDecrypt                              | 不存在时，调用CryptDecrypt。
+| BCryptGenerateSymmetricKey                 | 不存在时，调用CryptImportKey。
+| BCryptDestroyKey                           | 不存在时，调用CryptDestroyKey。
+| BCryptExportKey                            | 不存在时，调用CryptExportKey。
+| BCryptImportKey                            | 不存在时，调用CryptImportKey。
 
 ## bcryptprimitives.dll
 | 函数                                       | Fallback
@@ -289,24 +323,6 @@
 | UnmapViewOfFileEx                          | 不存在时，调用 UnmapViewOfFile 。
 | VirtualProtectFromApp                      | 不存在时，调用 VirtualProtect 。
 | OpenFileMappingFromApp                     | 不存在时，调用 OpenFileMappingW 。
-| CreateThreadpoolWork                       | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| CloseThreadpoolWork                        | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| SubmitThreadpoolWork                       | 不存在时，调用QueueUserWorkItem。警告，此函数请勿跨模块使用！！！
-| WaitForThreadpoolWorkCallbacks             | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| CreateThreadpoolTimer                      | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| CloseThreadpoolTimer                       | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| SetThreadpoolTimer                         | 不存在时，调用QueueTimer。警告，此函数请勿跨模块使用！！！
-| SetEventWhenCallbackReturns                | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| ReleaseSemaphoreWhenCallbackReturns        | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| ReleaseMutexWhenCallbackReturns            | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| LeaveCriticalSectionWhenCallbackReturns    | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| FreeLibraryWhenCallbackReturns             | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| WaitForThreadpoolTimerCallbacks            | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| TrySubmitThreadpoolCallback                | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| CreateThreadpoolWait                       | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| CloseThreadpoolWait                        | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
-| SetThreadpoolWait                          | 不存在时，调用RegisterWaitForSingleObject。警告，此函数请勿跨模块使用！！！
-| WaitForThreadpoolWaitCallbacks             | 不存在时，内部实现。警告，此函数请勿跨模块使用！！！
 | FlushProcessWriteBuffers                   | 不存在时，调用VirtualProtect。
 | FlsAlloc                                   | 不存在时，使用Tls实现。警告，此函数请勿跨模块使用！！！
 | FlsFree                                    | 不存在时，使用Tls实现。警告，此函数请勿跨模块使用！！！
