@@ -191,6 +191,11 @@ namespace YY::Thunks
             template<typename Type>
             struct TP_BASE : public Type
             {
+                using Type::nRef;
+                using Type::VFuncs;
+                using Type::uFlags;
+                using Type::uFlags64;
+                using Type::hEvent;
                 void AddRef()
                 {
                     InterlockedIncrement(&nRef);
