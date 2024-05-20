@@ -99,10 +99,6 @@ namespace WinHppt
                     if (dwInternetStatus == WINHTTP_CALLBACK_FLAG_GETPROXYFORURL_COMPLETE)
                     {
                         ::WinHttpGetProxyResult(hInternet, &_TestInfo.ProxyResult);
-                        WINHTTP_PROXY_RESULT ProxyResult;
-                        ::WinHttpGetProxyResult(hInternet, &ProxyResult);
-
-                        int u = 0;
                     }
                     SetEvent(_TestInfo.hEvent);
 
@@ -116,9 +112,6 @@ namespace WinHppt
 
             WaitForSingleObject(_TestInfo.hEvent, INFINITE);
 
-            WINHTTP_PROXY_RESULT ProxyResult;
-            ::WinHttpGetProxyResult(hResolver, &ProxyResult);
-
             Assert::IsTrue(::WinHttpCloseHandle(hResolver));
 
             Assert::AreEqual(ToString(_TestInfo.ProxyResult), ToString(kTargetEntries));
@@ -131,7 +124,7 @@ namespace WinHppt
         {
             static const WINHTTP_PROXY_RESULT_ENTRY kTargetEntries[] =
             {
-                {1, 0, INTERNET_SCHEME_HTTP, (PWSTR)L"192.168.18.193", 1081 },
+                {1, 0, INTERNET_SCHEME_HTTP, const_cast<PWSTR>(L"192.168.18.193"), 1081 },
             };
 
             struct TestInfo
@@ -182,6 +175,8 @@ namespace WinHppt
             WaitForSingleObject(_TestInfo.hEvent, INFINITE);
 
             Assert::AreEqual(ToString(_TestInfo.ProxyResult), ToString(kTargetEntries));
+            Assert::IsTrue(::WinHttpCloseHandle(hResolver));
+            Assert::IsTrue(::WinHttpCloseHandle(_hSession));
 
             ::WinHttpFreeProxyResult(&_TestInfo.ProxyResult);
         }
@@ -190,8 +185,8 @@ namespace WinHppt
         {
             static const WINHTTP_PROXY_RESULT_ENTRY kTargetEntries[] =
             {
-                {1, 0, INTERNET_SCHEME_HTTP, (PWSTR)L"192.168.18.193", 80 },
-                {1, 0, INTERNET_SCHEME_HTTP, (PWSTR)L"192.168.18.194", 100 },
+                {1, 0, INTERNET_SCHEME_HTTP, const_cast<PWSTR>(L"192.168.18.193"), 80 },
+                {1, 0, INTERNET_SCHEME_HTTP, const_cast<PWSTR>(L"192.168.18.194"), 100 },
             };
 
             struct TestInfo
@@ -242,6 +237,8 @@ namespace WinHppt
             WaitForSingleObject(_TestInfo.hEvent, INFINITE);
 
             Assert::AreEqual(ToString(_TestInfo.ProxyResult), ToString(kTargetEntries));
+            Assert::IsTrue(::WinHttpCloseHandle(hResolver));
+            Assert::IsTrue(::WinHttpCloseHandle(_hSession));
 
             ::WinHttpFreeProxyResult(&_TestInfo.ProxyResult);
         }
@@ -250,7 +247,7 @@ namespace WinHppt
         {
             static const WINHTTP_PROXY_RESULT_ENTRY kTargetEntries[] =
             {
-                {1, 0, INTERNET_SCHEME_HTTPS, (PWSTR)L"192.168.18.193", 80 },
+                {1, 0, INTERNET_SCHEME_HTTPS, const_cast<PWSTR>(L"192.168.18.193"), 80 },
             };
 
             struct TestInfo
@@ -302,6 +299,8 @@ namespace WinHppt
             WaitForSingleObject(_TestInfo.hEvent, INFINITE);
 
             Assert::AreEqual(ToString(_TestInfo.ProxyResult), ToString(kTargetEntries));
+            Assert::IsTrue(::WinHttpCloseHandle(hResolver));
+            Assert::IsTrue(::WinHttpCloseHandle(_hSession));
 
             ::WinHttpFreeProxyResult(&_TestInfo.ProxyResult);
         }
@@ -310,9 +309,9 @@ namespace WinHppt
         {
             static const WINHTTP_PROXY_RESULT_ENTRY kTargetEntries[] =
             {
-                {1, 0, INTERNET_SCHEME_HTTPS, (PWSTR)L"192.168.18.193", 80 },
-                {1, 0, INTERNET_SCHEME_HTTPS, (PWSTR)L"192.168.18.194", 102 },
-                {1, 0, INTERNET_SCHEME_HTTP, (PWSTR)L"192.168.18.195", 103 },
+                {1, 0, INTERNET_SCHEME_HTTPS, const_cast<PWSTR>(L"192.168.18.193"), 80 },
+                {1, 0, INTERNET_SCHEME_HTTPS, const_cast<PWSTR>(L"192.168.18.194"), 102 },
+                {1, 0, INTERNET_SCHEME_HTTP, const_cast<PWSTR>(L"192.168.18.195"), 103 },
             };
 
             struct TestInfo
@@ -363,6 +362,8 @@ namespace WinHppt
             WaitForSingleObject(_TestInfo.hEvent, INFINITE);
 
             Assert::AreEqual(ToString(_TestInfo.ProxyResult), ToString(kTargetEntries));
+            Assert::IsTrue(::WinHttpCloseHandle(hResolver));
+            Assert::IsTrue(::WinHttpCloseHandle(_hSession));
 
             ::WinHttpFreeProxyResult(&_TestInfo.ProxyResult);
         }
