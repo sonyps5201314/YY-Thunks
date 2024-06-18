@@ -275,6 +275,63 @@
     <ClInclude Include="..\Shared\Heap.h">
       <Filter>Shared</Filter>
     </ClInclude>
+    <ClInclude Include="..\Thunks\ext-ms-win-ntuser-misc.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\ext-ms-win-ntuser-gui.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\dxgi.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\d3d11.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\dwrite.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\dxva2.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\d3d9.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\ext-ms-win-ntuser-sysparams-ext.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\uxtheme.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\UIAutomationCore.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\dbghelp.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\DllMainCRTStartup.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\ext-ms-win-shell-shell32.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\wevtapi.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\propsys.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\ncrypt.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\esent.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\credui.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\api-ms-win-core-windowserrorreporting.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\def\x86\PSAPI2Kernel32.def">
@@ -285,6 +342,12 @@
     </None>
     <None Include="proxy.pac">
       <Filter>资源文件</Filter>
+    </None>
+    <None Include="..\def\x86\esent.def">
+      <Filter>源文件\def\x86</Filter>
+    </None>
+    <None Include="..\def\x64\esent.def">
+      <Filter>源文件\def\x64</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -7,6 +7,15 @@
     _APPLY(kernel32,                                     "kernel32"                           , USING_UNSAFE_LOAD ) \
     _APPLY(crypt32,                                      "crypt32"                            , 0                 ) \
     _APPLY(dwmapi,                                       "dwmapi"                             , 0                 ) \
+    _APPLY(d3d9,                                         "d3d9"                               , 0                 ) \
+    _APPLY(d3d11,                                        "d3d11"                              , 0                 ) \
+    _APPLY(dbghelp,                                      "dbghelp"                            , USING_UNSAFE_LOAD ) \
+    _APPLY(dxgi,                                         "dxgi"                               , 0                 ) \
+    _APPLY(dwrite,                                       "dwrite"                             , 0                 ) \
+    _APPLY(dxva2,                                        "dxva2"                              , 0                 ) \
+    _APPLY(esent,                                        "esent"                              , 0                 ) \
+    _APPLY(uxtheme,                                      "uxtheme"                            , 0                 ) \
+    _APPLY(uiautomationcore,                             "uiautomationcore"                   , 0                 ) \
     _APPLY(psapi,                                        "psapi"                              , 0                 ) \
     _APPLY(pdh,                                          "pdh"                                , 0                 ) \
     _APPLY(version,                                      "version"                            , 0                 ) \
@@ -26,7 +35,9 @@
     _APPLY(bluetoothapis,                                "bluetoothapis"                      , 0                 ) \
     _APPLY(netapi32,                                     "netapi32"                           , 0                 ) \
     _APPLY(powrprof,                                     "powrprof"                           , 0                 ) \
+    _APPLY(wevtapi,                                      "wevtapi"                            , 0                 ) \
     _APPLY(winhttp,                                      "winhttp"                            , 0                 ) \
+    _APPLY(zipfldr,                                      "zipfldr"                            , LOAD_AS_DATA_FILE ) \
     _APPLY(api_ms_win_core_realtime_l1_1_1,              "api-ms-win-core-realtime-l1-1-1"    , 0                 ) \
     _APPLY(api_ms_win_core_winrt_l1_1_0,                 "api-ms-win-core-winrt-l1-1-0"       , 0                 ) \
     _APPLY(api_ms_win_core_winrt_string_l1_1_0,          "api-ms-win-core-winrt-string-l1-1-0", 0                 ) \
@@ -64,6 +75,7 @@
     _APPLY(RtlDllShutdownInProgress,                     ntdll                                         ) \
     _APPLY(RtlCutoverTimeToSystemTime,                   ntdll                                         ) \
     _APPLY(NtCancelIoFile,                               ntdll                                         ) \
+    _APPLY(NtWow64ReadVirtualMemory64,                   ntdll                                         ) \
     _APPLY(AddDllDirectory,                              kernel32                                      ) \
     _APPLY(SystemFunction036,                            advapi32                                      )
 
@@ -121,51 +133,74 @@ RtlCutoverTimeToSystemTime(
 
 #include "YY_Thunks.h"
 
-#if (YY_Thunks_Support_Version < NTDDI_WS03SP1)
+#if (YY_Thunks_Support_Version < NTDDI_WS03SP1) && !defined(__Comment_Lib_advapi32)
+#define __Comment_Lib_advapi32
 #pragma comment(lib, "Advapi32.lib")
 #endif
 
-#if (YY_Thunks_Support_Version < NTDDI_WIN6)
+#if (YY_Thunks_Support_Version < NTDDI_WIN6) && !defined(__Comment_Lib_shlwapi)
+#define __Comment_Lib_shlwapi
 #pragma comment(lib, "Shlwapi.lib")
+#endif
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6) && !defined(__Comment_Lib_ws2_32)
+#define __Comment_Lib_ws2_32
 #pragma comment(lib, "Ws2_32.lib")
+#endif
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6) && !defined(__Comment_Lib_version)
+#define __Comment_Lib_version
 #pragma comment(lib, "version.lib")
+#endif
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6) && !defined(__Comment_Lib_ole32)
+#define __Comment_Lib_ole32
 #pragma comment(lib, "ole32.lib")
+#endif
+
+#if (YY_Thunks_Support_Version < NTDDI_WIN6) && !defined(__Comment_Lib_shell32)
+#define __Comment_Lib_shell32
 #pragma comment(lib, "shell32.lib")
 #endif
 
-#if (YY_Thunks_Support_Version < NTDDI_WIN7)
+// PSAPI2Kernel32.def
+#if (YY_Thunks_Support_Version < NTDDI_WIN7) && !defined(__Comment_Lib_psapi)
+#define __Comment_Lib_psapi
 #pragma comment(lib, "psapi.lib")
 #endif
 
-#if (YY_Thunks_Support_Version >= NTDDI_WINBLUE)
+#if (YY_Thunks_Support_Version >= NTDDI_WINBLUE) && !defined(__Comment_Lib_shcore)
+#define __Comment_Lib_shcore
 #pragma comment(lib, "Shcore.lib")
 #endif
 
-#if (YY_Thunks_Support_Version < NTDDI_WINBLUE)
+#if (YY_Thunks_Support_Version < NTDDI_WINBLUE) && !defined(__Comment_Lib_gdi32)
+#define __Comment_Lib_gdi32
 #pragma comment(lib, "Gdi32.lib")
 #endif
 
-#if (YY_Thunks_Support_Version < NTDDI_WIN10)
+#if (YY_Thunks_Support_Version < NTDDI_WIN10) && !defined(__Comment_Lib_user32)
+#define __Comment_Lib_user32
 #pragma comment(lib, "User32.lib")
 #endif
 
 #include <HookThunk.h>
 
+#ifndef __FALLBACK_PREFIX
+#define __FALLBACK_PREFIX
+#define __YY_Thunks_libs 0
+#else
+#define __YY_Thunks_libs 1
+#endif
+
 //展开函数的所有的 声明 以及 try_get_ 函数
-#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
-    __APPLY_UNIT_TEST_BOOL(_FUNCTION);                                                         \
-    EXTERN_C _RETURN_ _CONVENTION_ _FUNCTION(__VA_ARGS__);                                     \
-	static decltype(_FUNCTION)* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept       \
-	{                                                                                          \
-        __CHECK_UNIT_TEST_BOOL(_FUNCTION);                                                     \
-		__declspec(allocate(".YYThu$AAB")) static void* _CRT_CONCATENATE(pFun_, _FUNCTION);    \
-		return reinterpret_cast<decltype(_FUNCTION)*>(try_get_function(                        \
-		&_CRT_CONCATENATE(pFun_ ,_FUNCTION),                                                   \
-		_CRT_STRINGIZE(_FUNCTION),                                                             \
-        &_CRT_CONCATENATE(try_get_module_, _MODULE)));                                         \
-	}                                                                                          \
+#define __DEFINE_THUNK_EXTERN_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                      \
+    __APPLY_UNIT_TEST_BOOL(_FUNCTION);                                                                                     \
+    EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__);                                     \
+	static decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept;      \
 	__if_not_exists(_CRT_CONCATENATE(try_get_, _FUNCTION))
 
+#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 
 #include "Thunks\YY_Thunks_List.hpp"
 
@@ -754,12 +789,38 @@ namespace YY::Thunks::internal
 
 #include "ThreadRunner.h"
 
+#define _DEFINE_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE) _LCRT_DEFINE_IAT_SYMBOL(_PREFIX ## _FUNCTION, _SIZE)
+#define _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE) _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE, _PREFIX ## _FUNCTION)
+
 //导入实际的实现
 #define YY_Thunks_Implemented
-#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)     \
-    _LCRT_DEFINE_IAT_SYMBOL(_FUNCTION, _SIZE);                                     \
-    _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE);                 \
-    EXTERN_C _RETURN_ _CONVENTION_ _FUNCTION(__VA_ARGS__)
+#define __DEFINE_THUNK_IMP_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
+    static decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept       \
+	{                                                                                          \
+        __CHECK_UNIT_TEST_BOOL(_FUNCTION);                                                     \
+        __declspec(allocate(".YYThr$AAA")) static void* _CRT_CONCATENATE(pInit_ ,_FUNCTION) =  \
+              reinterpret_cast<void*>(&_CRT_CONCATENATE(try_get_, _FUNCTION));                 \
+        /*为了避免编译器将 YYThr$AAA 节优化掉*/                                                \
+        __foreinclude(_CRT_CONCATENATE(pInit_ ,_FUNCTION));                                    \
+		__declspec(allocate(".YYThu$AAB")) static void* _CRT_CONCATENATE(pFun_, _FUNCTION);    \
+        static const ProcInfo _ProcInfo =                                                      \
+        {                                                                                      \
+            _CRT_STRINGIZE(_FUNCTION),                                                         \
+            &_CRT_CONCATENATE(try_get_module_, _MODULE),                                       \
+__if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))                       \
+{                                                                                              \
+            &YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION)                       \
+}                                                                                              \
+        };                                                                                     \
+		return reinterpret_cast<decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))*>(try_get_function(                        \
+		&_CRT_CONCATENATE(pFun_ ,_FUNCTION),                                                   \
+		_ProcInfo));                                                                           \
+	}                                                                                          \
+    _DEFINE_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                                                 \
+    _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
+    EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
+
+#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 
 #include "YY_Thunks_List.hpp"
 

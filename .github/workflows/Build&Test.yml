@@ -17,9 +17,11 @@ jobs:
           # Procdump工具，用于单元测试崩溃诊断
           Invoke-WebRequest -Uri https://download.sysinternals.com/files/Procdump.zip  -OutFile Bin\Procdump.zip
           &7z e Bin\Procdump.zip "-o$Env:GITHUB_WORKSPACE\Bin"
+          
+          Invoke-WebRequest -Uri https://github.com/mingkuang-Chuyu/Visual_Studio_Platform_Toolset/releases/download/v1.0.2/Visual.Studio.2008.Platform.Toolset.v1.0.2.7z  -OutFile Bin\Visual.Studio.2008.Platform.Toolset.v1.0.2.7z
+          &7z x Bin\Visual.Studio.2008.Platform.Toolset.v1.0.2.7z "-o$Env:GITHUB_WORKSPACE\Bin"
 
-
-          Invoke-WebRequest -Uri https://github.com/Chuyu-Team/YY-Thunks/releases/download/v1.0.2.8/LibMaker.exe -OutFile Bin\LibMaker.exe
+          Invoke-WebRequest -Uri https://github.com/Chuyu-Team/LibMaker/releases/download/v1.0.3/LibMaker.exe -OutFile Bin\LibMaker.exe
           Invoke-WebRequest -Uri https://github.com/Chuyu-Team/YY-Thunks/releases/download/v1.0.2.8/MinimumRequiredVersionHelper.exe -OutFile Bin\MinimumRequiredVersionHelper.exe
           
           $ProgramFiles = ${env:ProgramFiles(x86)}
@@ -94,28 +96,31 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       shell: cmd
       run: |
-          set Path=%GITHUB_WORKSPACE%\Bin;%Path%
+          set Path=%GITHUB_WORKSPACE%\Bin;${{env.MSBuildBinPath}};%Path%
           set LatestVisualStudioRoot=${{env.LatestVisualStudioRoot}}
           
           setlocal
           call "%LatestVisualStudioRoot%\VC\Auxiliary\Build\vcvars32.bat"
           call "%GITHUB_WORKSPACE%\src\Build.cmd"
+          if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
           endlocal
           
           setlocal
           call "%LatestVisualStudioRoot%\VC\Auxiliary\Build\vcvars64.bat"
           call "%GITHUB_WORKSPACE%\src\Build.cmd"
+          if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
           endlocal
 
+          msbuild src\YY.Depends.Analyzer\YY.Depends.Analyzer.vcxproj "-p:Configuration=Release;Platform=Win32;OutDir=%GITHUB_WORKSPACE%\;SolutionDir=%GITHUB_WORKSPACE%\src\\"
+          if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
     - name: 执行单元测试
       working-directory: ${{env.GITHUB_WORKSPACE}}
       shell: pwsh
       run: |
-          # MSBuild 目录更新到 Path
-          $Env:Path="${{env.MSBuildBinPath}};${{env.LatestVisualStudioRoot}}\Common7\IDE\CommonExtensions\Microsoft\TestWindow;" + $Env:Path
+          # MSBuild、PROCDUMP_PATH目录更新到 Path
+          $Env:Path="$Env:GITHUB_WORKSPACE\Bin;${{env.MSBuildBinPath}};${{env.LatestVisualStudioRoot}}\Common7\IDE\CommonExtensions\Microsoft\TestWindow;" + $Env:Path
           
-          # 设置 PROCDUMP_PATH 目录
-          $Env:PROCDUMP_PATH="$Env:GITHUB_WORKSPACE\Bin"
+          $Env:WindowsSdkDir_60A_TestPath="$Env:GITHUB_WORKSPACE\Bin\Program Files\Microsoft SDKs\Windows\v6.0A"
 
           # 编译单元测试项目
           &msbuild src\YY-Thunks.UnitTest\YY-Thunks.UnitTest.vcxproj "-p:Configuration=Release;Platform=Win32;SolutionDir=$Env:GITHUB_WORKSPACE\src\\"
@@ -132,13 +137,13 @@ jobs:
           
           $RunFaild = 0
 
-          &vstest.console src\Release\YY-Thunks.UnitTest.dll "/logger:trx;LogFileName=UnitTestWin32.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full /Diag:TestResults\Win32.log"
+          &vstest.console src\Release\YY-Thunks.UnitTest.dll "/logger:trx;LogFileName=UnitTestWin32.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full" "/Diag:TestResults\Win32.log"
           if($lastexitcode -ne 0)
           {
               $RunFaild = 1
           }
           
-          &vstest.console src\x64\Release\YY-Thunks.UnitTest.dll "/logger:trx;LogFileName=UnitTestWin64.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full /Diag:TestResults\Win64.log"
+          &vstest.console src\x64\Release\YY-Thunks.UnitTest.dll "/logger:trx;LogFileName=UnitTestWin64.trx" "/Blame:CollectDump;CollectAlways=false;DumpType=full" "/Diag:TestResults\Win64.log"
           if($lastexitcode -ne 0)
           {
               $RunFaild = 1
@@ -160,8 +165,16 @@ jobs:
       shell: cmd
       run: |
           ::打包Release
-          7z a -tzip YY-Thunks-${{env.BuildVersion}}-Binary.zip objs LICENSE ReadMe.md ThunksList.md
-          
+          7z a -tzip %GITHUB_WORKSPACE%\YY-Thunks-${{env.BuildVersion}}-Objs.zip objs LICENSE ReadMe.md ThunksList.md YY.Depends.Analyzer.exe
+          pushd ".\src\YY.Depends.Analyzer"
+          7z a -tzip %GITHUB_WORKSPACE%\YY-Thunks-${{env.BuildVersion}}-Objs.zip Config
+          popd
+
+          7z a -tzip %GITHUB_WORKSPACE%\YY-Thunks-${{env.BuildVersion}}-Lib.zip Lib LICENSE ReadMe.md ThunksList.md YY.Depends.Analyzer.exe
+          pushd ".\src\YY.Depends.Analyzer"
+          7z a -tzip %GITHUB_WORKSPACE%\YY-Thunks-${{env.BuildVersion}}-Lib.zip Config
+          popd
+
           ::打包Nuget
           if "${{env.BuildVersion}}" NEQ "" (
               nuget pack YY-Thunks-New.nuspec -Properties version=${{env.BuildVersion}};commit=%GITHUB_SHA%
@@ -186,6 +199,8 @@ jobs:
             src\x64\Release\YY-Thunks.UnitTest.dll
             src\x64\Release\YY-Thunks.UnitTest.pdb
             src\x64\Release\*.log
+            src\YY-Thunks.UnitTest\TestProject\Example\Win32\Static
+            src\YY-Thunks.UnitTest\TestProject\Example\x64\Static
 
     - uses: xresloader/upload-to-github-release@v1
       env:

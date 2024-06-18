@@ -34,12 +34,12 @@
 
 #if defined(_M_IX86)
 // 根据 https://github.com/Chuyu-Team/YY-Thunks/issues/78 修正一下rust raw-dylib引用规则
-#define _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE)                                    \
+#define _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE, _FUNCTION_ADDRESS)                                    \
     __pragma(warning(suppress:4483))                                                                     \
     extern "C" __declspec(selectany) void const* const __identifier(_CRT_STRINGIZE_(_imp_ ## _FUNCTION)) \
-        = reinterpret_cast<void const*>(_FUNCTION)
+        = reinterpret_cast<void const*>(_FUNCTION_ADDRESS)
 #else
-#define _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE)
+#define _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL(_FUNCTION, _SIZE, _FUNCTION_ADDRESS)
 #endif
 
 #ifdef __YY_Thunks_Unit_Test
@@ -174,13 +174,27 @@ static __forceinline unsigned __int64 __fastcall __crt_rotate_pointer_value(unsi
 #ifdef _WIN64
 #define __foreinclude(p)                          \
 	__pragma(warning(suppress:6031))              \
-	_bittest64(reinterpret_cast<LONG_PTR*>(&p), 0)
+	_bittest64((LONG_PTR*)(&p), 0)
 #else
 #define __foreinclude(p)                          \
 	__pragma(warning(suppress:6031))              \
-	_bittest(reinterpret_cast<LONG_PTR*>(&p), 0)
+	_bittest((LONG_PTR*)(&p), 0)
 #endif
 
+enum class ThunksInitStatus : LONG
+{
+    // 已经反初始化
+    Uninitialized = -2,
+    // 其他线程正在处理
+    Wait = -1,
+    None = 0,
+    InitByDllMain,
+    InitByCRT,
+    // 调用被Thunks的API时发生的延后初始化
+    InitByAPI,
+};
+
+static ThunksInitStatus __cdecl _YY_initialize_winapi_thunks(ThunksInitStatus _sInitStatus);
 
 static PVOID __fastcall __CRT_DecodePointer(
 		PVOID Ptr
@@ -252,9 +266,9 @@ static HMODULE __fastcall try_load_library_from_system_directory(wchar_t const* 
 
 
 #define USING_UNSAFE_LOAD 0x00000001
+#define LOAD_AS_DATA_FILE 0x00000002
 
-template<int Flags>
-static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_t* module_name) noexcept
+static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_t* module_name, int Flags) noexcept
 {
 	// First check to see if we've cached the module handle:
 	if (HMODULE const cached_handle = __crt_interlocked_read_pointer(pModule))
@@ -270,7 +284,20 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
 	// If we haven't yet cached the module handle, try to load the library.  If
 	// this fails, cache the sentinel handle value INVALID_HANDLE_VALUE so that
 	// we don't attempt to load the module again:
-	HMODULE const new_handle = (Flags & USING_UNSAFE_LOAD) ? LoadLibraryW(module_name) : try_load_library_from_system_directory(module_name);
+    HMODULE new_handle = NULL;
+    if (Flags & LOAD_AS_DATA_FILE)
+    {
+        new_handle = LoadLibraryExW(module_name, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    }
+    else if (Flags & USING_UNSAFE_LOAD)
+    {
+        new_handle = LoadLibraryW(module_name);
+    }
+    else
+    {
+        new_handle = try_load_library_from_system_directory(module_name);
+    }
+    
 	if (!new_handle)
 	{
 		if (HMODULE const cached_handle = __crt_interlocked_exchange_pointer(pModule, INVALID_HANDLE_VALUE))
@@ -295,32 +322,39 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
 }
 
 #define _APPLY(_MODULE, _NAME, _FLAGS)                                                         \
-    static volatile HMODULE __fastcall _CRT_CONCATENATE(try_get_module_, _MODULE)() noexcept   \
+    static HMODULE __fastcall _CRT_CONCATENATE(try_get_module_, _MODULE)() noexcept            \
     {                                                                                          \
-        __declspec(allocate(".YYThr$AAA")) static void* _CRT_CONCATENATE(pInit_ ,_MODULE) =    \
-              reinterpret_cast<void*>(&_CRT_CONCATENATE(try_get_module_, _MODULE));            \
-        /*为了避免编译器将 YYThr$AAA 节优化掉*/                                                \
-        __foreinclude(_CRT_CONCATENATE(pInit_ ,_MODULE));                                      \
         __declspec(allocate(".YYThu$AAA")) static volatile HMODULE hModule;                    \
-        return try_get_module<_FLAGS>(&hModule, _CRT_CONCATENATE(module_name_, _MODULE));      \
+        return try_get_module(&hModule, _CRT_CONCATENATE(module_name_, _MODULE), _FLAGS);      \
     }
 _YY_APPLY_TO_LATE_BOUND_MODULES(_APPLY)
 #undef _APPLY
 
-typedef volatile HMODULE (__fastcall* try_get_module_fun)();
+typedef HMODULE (__fastcall* try_get_module_fun)();
+typedef void*(__fastcall* try_get_proc_fallback_fun)();
+
+struct ProcInfo
+{
+    char const* const szProcName;
+    try_get_module_fun pfnGetModule;
+    try_get_proc_fallback_fun pfnGetProcFallback;
+};
 
 static __forceinline void* __fastcall try_get_proc_address_from_first_available_module(
-	try_get_module_fun get_module,
-	char      const* const name
-) noexcept
+	const ProcInfo& _ProcInfo
+    ) noexcept
 {
-	HMODULE const module_handle = get_module();
+	HMODULE const module_handle = _ProcInfo.pfnGetModule();
 	if (!module_handle)
 	{
 		return nullptr;
 	}
 
-	return reinterpret_cast<void*>(GetProcAddress(module_handle, name));
+	auto _pProc = reinterpret_cast<void*>(GetProcAddress(module_handle, _ProcInfo.szProcName));
+    if (_pProc || _ProcInfo.pfnGetProcFallback == nullptr)
+        return _pProc;
+
+    return _ProcInfo.pfnGetProcFallback();
 }
 
 
@@ -332,10 +366,15 @@ static __forceinline void* __cdecl invalid_function_sentinel() noexcept
 
 static void* __fastcall try_get_function(
 	void**      ppFunAddress,
-	char      const* const name,
-	try_get_module_fun get_module
-) noexcept
+    const ProcInfo& _ProcInfo
+    ) noexcept
 {
+    // 指针为空，那么往往还没有调用初始化，尝试动态初始化
+    if (*ppFunAddress == nullptr)
+    {
+        _YY_initialize_winapi_thunks(ThunksInitStatus::InitByAPI);
+    }
+
 	// First check to see if we've cached the function pointer:
 	{
 		void* const cached_fp = __crt_fast_decode_pointer(
@@ -355,7 +394,7 @@ static void* __fastcall try_get_function(
 	// If we haven't yet cached the function pointer, try to import it from any
 	// of the modules in which it might be defined.  If this fails, cache the
 	// sentinel pointer so that we don't attempt to load this function again:
-	void* const new_fp = try_get_proc_address_from_first_available_module(get_module, name);
+	void* const new_fp = try_get_proc_address_from_first_available_module(_ProcInfo);
 	if (!new_fp)
 	{
 		void* const cached_fp = __crt_fast_decode_pointer(
@@ -396,39 +435,120 @@ static void* __fastcall try_get_function(
     static _CRT_CONCATENATE(_FUNCTION, _pft) __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept \
     {                                                                                                 \
         __CHECK_UNIT_TEST_BOOL(_FUNCTION);                                                            \
+        __declspec(allocate(".YYThr$AAA")) static void* const _CRT_CONCATENATE(pInit_ ,_FUNCTION) =   \
+              reinterpret_cast<void*>(&_CRT_CONCATENATE(try_get_, _FUNCTION));                        \
+        /*为了避免编译器将 YYThr$AAA 节优化掉*/                                                       \
+        __foreinclude(_CRT_CONCATENATE(pInit_ ,_FUNCTION));                                           \
         __declspec(allocate(".YYThu$AAB")) static void* _CRT_CONCATENATE( pFun_ ,_FUNCTION);          \
+        static const ProcInfo _ProcInfo =                                                             \
+        {                                                                                             \
+            _CRT_STRINGIZE(_FUNCTION),                                                                \
+            &_CRT_CONCATENATE(try_get_module_, _MODULE),                                              \
+__if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))                              \
+{                                                                                                     \
+            &YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION)                              \
+}                                                                                                     \
+        };                                                                                            \
         return reinterpret_cast<_CRT_CONCATENATE(_FUNCTION, _pft)>(try_get_function(                  \
             &_CRT_CONCATENATE(pFun_ ,_FUNCTION),                                                      \
-            _CRT_STRINGIZE(_FUNCTION),                                                                \
-            &_CRT_CONCATENATE(try_get_module_, _MODULE)));                                            \
+            _ProcInfo));                                                                              \
     }
 	_YY_APPLY_TO_LATE_BOUND_FUNCTIONS(_APPLY)
 #undef _APPLY
 
 
-static bool g_bUninitialize/* = false*/;
+#ifdef _WIN64
+#define DEFAULT_SECURITY_COOKIE ((uintptr_t)0x00002B992DDFA232)
+#else  /* _WIN64 */
+#define DEFAULT_SECURITY_COOKIE ((uintptr_t)0xBB40E64E)
+#endif  /* _WIN64 */
+
+static UINT_PTR GetSecurityNewCookie()
+{
+    /*
+    * Union to facilitate converting from FILETIME to unsigned __int64
+    */
+    typedef union {
+        unsigned __int64 ft_scalar;
+        FILETIME ft_struct;
+    } FT;
+
+    UINT_PTR cookie;
+    FT systime = { 0 };
+    LARGE_INTEGER perfctr;
+
+    GetSystemTimeAsFileTime(&systime.ft_struct);
+#if defined (_WIN64)
+    cookie = systime.ft_scalar;
+#else  /* defined (_WIN64) */
+    cookie = systime.ft_struct.dwLowDateTime;
+    cookie ^= systime.ft_struct.dwHighDateTime;
+#endif  /* defined (_WIN64) */
+
+    cookie ^= GetCurrentThreadId();
+    cookie ^= GetCurrentProcessId();
+
+#if (YY_Thunks_Support_Version >= NTDDI_WIN6)
+#if defined (_WIN64)
+    cookie ^= (((UINT_PTR)GetTickCount64()) << 56);
+#endif  /* defined (_WIN64) */
+    cookie ^= (UINT_PTR)GetTickCount64();
+#else // (YY_Thunks_Support_Version < NTDDI_WIN6)
+    cookie ^= (UINT_PTR)GetTickCount();
+#endif // !(YY_Thunks_Support_Version < NTDDI_WIN6)
+
+    QueryPerformanceCounter(&perfctr);
+#if defined (_WIN64)
+    cookie ^= (((UINT_PTR)perfctr.LowPart << 32) ^ perfctr.QuadPart);
+#else  /* defined (_WIN64) */
+    cookie ^= perfctr.LowPart;
+    cookie ^= perfctr.HighPart;
+#endif  /* defined (_WIN64) */
+
+    /*
+    * Increase entropy using ASLR relocation
+    */
+    cookie ^= (UINT_PTR)&cookie;
+
+#if defined (_WIN64)
+    /*
+    * On Win64, generate a cookie with the most significant word set to zero,
+    * as a defense against buffer overruns involving null-terminated strings.
+    * Don't do so on Win32, as it's more important to keep 32 bits of cookie.
+    */
+    cookie &= 0x0000FFFFffffFFFFi64;
+#endif  /* defined (_WIN64) */
+
+    if (cookie == UINT_PTR(0) || cookie == DEFAULT_SECURITY_COOKIE)
+    {
+        cookie = DEFAULT_SECURITY_COOKIE + 1;
+    }
+    return cookie;
+}
+
+static volatile ThunksInitStatus s_eThunksStatus /*= ThunksInitStatus::None*/;
 
 static void __cdecl __YY_uninitialize_winapi_thunks()
 {
-	// 值反初始化一次
-	if (g_bUninitialize)
+	// 只反初始化一次
+    const auto _eStatus = (ThunksInitStatus)InterlockedExchange((volatile LONG*)&s_eThunksStatus, LONG(ThunksInitStatus::Uninitialized));
+
+    // Uninitialized : 已经反初始化，那么也就没有必要再次反初始化。
+    // Wait : 其他线程还在等待……保险起见我就直接跳过反初始化吧。崩溃还是如何听天由命吧
+    // None : 怎么还没初始化呢……这是在逗我？
+	if (LONG(_eStatus) <= 0)
 		return;
 
-	g_bUninitialize = true;
-
-	//当DLL被强行卸载时，我们什么都不做。
+    //当DLL被强行卸载时，我们什么都不做，因为依赖的函数指针可能是无效的。
+    __if_exists(__YY_Thunks_Process_Terminating)
+    {
+        if (__YY_Thunks_Process_Terminating)
+            return;
+    }
 	if (auto pRtlDllShutdownInProgress = (decltype(RtlDllShutdownInProgress)*)GetProcAddress(try_get_module_ntdll(), "RtlDllShutdownInProgress"))
 	{
 		if(pRtlDllShutdownInProgress())
 			return;
-	}
-	__if_exists(__YY_Thunks_Process_Terminating)
-	{
-		else
-		{
-			if (__YY_Thunks_Process_Terminating)
-				return;
-		}
 	}
 
 	auto pModule = (HMODULE*)__YY_THUNKS_MODULE_START;
@@ -459,29 +579,63 @@ static void __cdecl __YY_uninitialize_winapi_thunks()
 	}
 }
 
-
-static int __cdecl _YY_initialize_winapi_thunks()
+static ThunksInitStatus __cdecl _YY_initialize_winapi_thunks(ThunksInitStatus _sInitStatus)
 {
-	__security_cookie_yy_thunks = __security_cookie;
+#ifndef NDEBUG
+    if (LONG(_sInitStatus) <= 0)
+    {
+        // 非法输入，请检查
+        __debugbreak();
+    }
+#endif
 
-	void* const encoded_nullptr = __crt_fast_encode_pointer((void*)nullptr);
+    auto _eStatus = (ThunksInitStatus)InterlockedCompareExchange((volatile LONG*)&s_eThunksStatus, LONG(ThunksInitStatus::Wait), LONG(ThunksInitStatus::None));
+    if (_eStatus == ThunksInitStatus::None)
+    {
+        // 首次进入，正在初始化
+        if (__security_cookie == 0 || __security_cookie == DEFAULT_SECURITY_COOKIE)
+        {
+            __security_cookie_yy_thunks = GetSecurityNewCookie();
+        }
+        else
+        {
+            __security_cookie_yy_thunks = __security_cookie;
+        }
 
-	for (auto p = __YY_THUNKS_FUN_START; p != __YY_THUNKS_FUN_END; ++p)
-	{
-		*p = encoded_nullptr;
-	}
+        void* const encoded_nullptr = __crt_fast_encode_pointer((void*)nullptr);
 
-	/*
-	 * https://github.com/Chuyu-Team/YY-Thunks/issues/7
-	 * 为了避免 try_get 系列函数竞争 DLL load锁，因此我们将所有被Thunk的API都预先加载完毕。
-	 */
-	for (auto p = (InitFunType*)__YY_THUNKS_INIT_FUN_START; p != (InitFunType*)__YY_THUNKS_INIT_FUN_END; ++p)
-	{
-		if (auto pInitFun = *p)
-			pInitFun();
-	}
+        for (auto p = __YY_THUNKS_FUN_START; p != __YY_THUNKS_FUN_END; ++p)
+        {
+            *p = encoded_nullptr;
+        }
 
-	return 0;
+        // 后续过程已经可以线程安全执行了，所以我们立即解锁，避免其他线程过于长时间的等待
+        InterlockedExchange((volatile LONG*)&s_eThunksStatus, LONG(_sInitStatus));
+
+        /*
+         * https://github.com/Chuyu-Team/YY-Thunks/issues/7
+         * 为了避免 try_get 系列函数竞争 DLL load锁，因此我们将所有被Thunk的API都预先加载完毕。
+         */
+        for (auto p = (InitFunType*)__YY_THUNKS_INIT_FUN_START; p != (InitFunType*)__YY_THUNKS_INIT_FUN_END; ++p)
+        {
+            if (auto pInitFun = *p)
+                pInitFun();
+        }
+
+        return _sInitStatus;
+    }
+    else if (_eStatus == ThunksInitStatus::Wait)
+    {
+        // 其他线程正在初始化……
+        do
+        {
+            YieldProcessor();
+            _eStatus = s_eThunksStatus;
+        } while (_eStatus != ThunksInitStatus::Wait);
+    }
+
+    // 初始化已经完成
+    return _eStatus;
 }
 
 // 外部weak符号，用于判断当前是否静态
@@ -489,7 +643,12 @@ EXTERN_C extern void* __acrt_atexit_table;
 
 static int __cdecl __YY_initialize_winapi_thunks()
 {
-	_YY_initialize_winapi_thunks();
+	const auto _eStatus = _YY_initialize_winapi_thunks(ThunksInitStatus::InitByCRT);
+    if (_eStatus != ThunksInitStatus::InitByCRT && _eStatus != ThunksInitStatus::InitByAPI)
+    {
+        // 不接管由DllMain触发的初始化，因为它可以自行反初始化。
+        return 0;
+    }
 
 	// 如果 == null，那么有2种情况：
 	//   1. 非UCRT，比如2008，VC6，这时，调用 atexit是安全的，因为atexit在 XIA初始化完成了。

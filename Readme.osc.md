@@ -6,6 +6,8 @@
 [![nuget](https://img.shields.io/nuget/vpre/YY-Thunks)](https://www.nuget.org/packages/YY-Thunks)
 [![Build&Test](https://github.com/Chuyu-Team/YY-Thunks/actions/workflows/Build&Test.yml/badge.svg)](https://github.com/Chuyu-Team/YY-Thunks/actions/workflows/Build&Test.yml)
 
+- [英语](Readme.md)
+
 ## 1. 关于 YY-Thunks
 
 众所周知，从 Windows 的每次更新又会新增大量 API，这使得兼容不同版本的 Windows 
@@ -22,8 +24,20 @@ YY-Thunks（鸭船），存在的目的就是抹平不同系统的差异，编�
 ### 1.1. 原理
 
 使用 `LoadLibrary` 以及 `GetProcAddress` 动态加载 API，不存在时做出补偿措施，
-最大限度模拟原始 API 行为，让你的程序正常运行。
+最大限度模拟原始 API 行为，让你的程序正常运行。大概就像下面这个`GetTickCount64`函数：
 
+```cpp
+// 注意：Windows XP 不支持 GetTickCount64
+ULONGLONG WINAPI GetTickCount64(VOID)
+{
+    if (auto const _pfnGetTickCount64 = try_get_GetTickCount64())
+    {
+        return _pfnGetTickCount64();
+    }
+    // Fallback
+    return GetTickCount();
+}
+```
 ### 1.2. 亮点
 
 * 更快！更安全！`鸭船`内建2级缓存以及按需加载机制，同时自动加密所有函数指针，
@@ -51,16 +65,30 @@ YY-Thunks（鸭船），存在的目的就是抹平不同系统的差异，编�
 4. 默认兼容到Windows Vista（默认）,如果需要兼容Windows XP可以将`WindowsSupportedOSPlatformVersion`调整为`5.1`。
 
 ### 2.2. 手工配置
-
-1. 下载 [YY-Thunks-Binary](https://github.com/Chuyu-Team/YY-Thunks/releases)，
+#### 2.2.1. obj方式（适合微软的链接器）
+1. 下载 [YY-Thunks-Objs](https://github.com/Chuyu-Team/YY-Thunks/releases)，
    然后解压到你的工程目录。
 2. 【链接器】-【输入】-【附加依赖项】，添加 
    `objs\$(PlatformShortName)\YY_Thunks_for_WinXP.obj`。
 3. 【链接器】-【系统】-【所需的最低版本】，根据实际情况填写 `5.01`（WinXP 32位） 或者 `5.02`（WinXP x64、2003）。
-4. 重新编译代码。
+4. 如果是编译DLL，那么【链接器】-【高级】-【自定义入口点】更改为`DllMainCRTStartupForYY_Thunks`（不这样做XP下使用thread_local可能崩溃！）
+5. 重新编译代码。
 
 > 温馨提示：如果需要兼容 Vista，【所需的最低版本】无需修改，但是【附加依赖项】请选择 
   `objs\$(PlatformShortName)\YY_Thunks_for_Vista.obj`。
+
+#### 2.2.2. lib方式（适合LLD-Link链接器）
+> LLD-Link链接器无法使用obj方式，因为遇到重复符号会报告错误。
+
+1. 下载 [YY-Thunks-Lib](https://github.com/Chuyu-Team/YY-Thunks/releases)，
+   然后解压到你的工程目录。
+2. 将 `-LIBPATH:YY-Thunks根目录/Lib/5.1.2600.0/x86` 类似的参数添加到链接器参数中，并确保顺序比系统SDK靠前。
+3. 链接器额外传递 `-SUBSYSTEM:WINDOWS",5.1"` 或者 `-SUBSYSTEM:CONSOLE",5.1"` 或者 `-SUBSYSTEM:WINDOWS",5.2"` 或者 `-SUBSYSTEM:CONSOLE",5.2"`。
+4. 如果是编译DLL，额外给链接器传递 `-ENTRY:DllMainCRTStartupForYY_Thunks`，修改DLL入口点（不这样做XP下使用thread_local可能崩溃！）
+5. 重新编译代码。
+
+> 温馨提示：如果您看不懂链接器的配置指引那么请使用NuGet版！NuGet对新手友好。
+
 
 ## 3. 兼容性
 
