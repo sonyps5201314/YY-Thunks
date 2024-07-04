@@ -11,7 +11,7 @@ namespace YY::Thunks::internal
     // 如果希望自定义函数入口点，可以设置此函数
     extern "C" extern decltype(_DllMainCRTStartup)* const __pfnDllMainCRTStartupForYY_Thunks;
 
-#if YY_Thunks_Support_Version < NTDDI_WIN6
+#if YY_Thunks_Target < __WindowsNT6
     extern "C" ULONG _tls_index;
     static ULONG _tls_index_old;
 #ifdef _WIN64
@@ -64,29 +64,13 @@ namespace YY::Thunks::internal
     static volatile LONG uStatus = 0;
     static TlsRawItem* volatile pRoot = nullptr;
 
-    static ULONG __fastcall GetTlsIndexBufferCount(TEB* _pTeb)
+    static SIZE_T __fastcall GetTlsIndexBufferCount(TEB* _pTeb)
     {
         auto _ppThreadLocalStoragePointer = (void**)_pTeb->ThreadLocalStoragePointer;
         if (!_ppThreadLocalStoragePointer)
             return 0;
 
         return HeapSize(_pTeb->ProcessEnvironmentBlock->ProcessHeap, 0, _ppThreadLocalStoragePointer) / sizeof(void*);
-    }
-    static PVOID NTAPI RtlImageDirectoryEntryToData(
-        __in PVOID pBaseAddress,
-        __in ULONG dwDirectory,
-        __out PULONG pSize
-        )
-    {
-        auto _pDosHeader = (PIMAGE_DOS_HEADER)pBaseAddress;
-        auto _pNtHerder = reinterpret_cast<PIMAGE_NT_HEADERS>(PBYTE(pBaseAddress) + _pDosHeader->e_lfanew);
-        auto& _DataDirectory = _pNtHerder->OptionalHeader.DataDirectory[dwDirectory];
-
-        *pSize = _DataDirectory.Size;
-        if (_DataDirectory.Size == 0 || _DataDirectory.VirtualAddress == 0)
-            return nullptr;
-
-        return PBYTE(pBaseAddress) + _DataDirectory.VirtualAddress;
     }
     
     static ULONG __fastcall GetMaxTlsIndex() noexcept
@@ -106,7 +90,7 @@ namespace YY::Thunks::internal
                 /*if (!_pEntry->TlsIndex)
                     continue;*/
                 ULONG TlsSize;
-                auto pTlsImage = (PIMAGE_TLS_DIRECTORY)RtlImageDirectoryEntryToData(
+                auto pTlsImage = (PIMAGE_TLS_DIRECTORY)YY_ImageDirectoryEntryToData(
                     _pEntry->BaseAddress,
                     IMAGE_DIRECTORY_ENTRY_TLS,
                     &TlsSize);
@@ -131,11 +115,13 @@ namespace YY::Thunks::internal
 
     static SYSTEM_PROCESS_INFORMATION* __fastcall GetCurrentProcessInfo(StringBuffer<char>& _szBuffer)
     {
-        const auto _pfnNtQuerySystemInformation = try_get_NtQuerySystemInformation();
-        if (!_pfnNtQuerySystemInformation)
+#if !defined(__USING_NTDLL_LIB)
+        const auto NtQuerySystemInformation = try_get_NtQuerySystemInformation();
+        if (!NtQuerySystemInformation)
             return nullptr;
+#endif
 
-        ULONG _cbBuffer = max(4096, _szBuffer.uBufferLength);
+        auto _cbBuffer = max(4096, _szBuffer.uBufferLength);
         ULONG _cbRet = 0;
         for (;;)
         {
@@ -143,7 +129,7 @@ namespace YY::Thunks::internal
             if (!_pBuffer)
                 return nullptr;
 
-            LONG _Status = _pfnNtQuerySystemInformation(SystemProcessInformation, _pBuffer, _cbBuffer, &_cbRet);
+            LONG _Status = NtQuerySystemInformation(SystemProcessInformation, _pBuffer, _cbBuffer, &_cbRet);
             if (_Status >= 0)
                 break;
 
@@ -157,7 +143,7 @@ namespace YY::Thunks::internal
         auto _pInfo = (SYSTEM_PROCESS_INFORMATION*)_szBuffer.GetBuffer(0);
         for (;;)
         {
-            if (_pInfo->ProcessId == (HANDLE)_uCurrentProcessId)
+            if (static_cast<DWORD>(reinterpret_cast<UINT_PTR>(_pInfo->ProcessId)) == _uCurrentProcessId)
                 return _pInfo;
 
             if (_pInfo->NextEntryDelta == 0)
@@ -299,9 +285,11 @@ namespace YY::Thunks::internal
         // 同时给所有历史的线程追加新DLL产生的Tls内存
         do
         {
-            const auto _pfnNtQueryInformationThread = try_get_NtQueryInformationThread();
-            if (!_pfnNtQueryInformationThread)
+#if !defined(__USING_NTDLL_LIB)
+            const auto NtQueryInformationThread = try_get_NtQueryInformationThread();
+            if (!NtQueryInformationThread)
                 break;
+#endif
 
             StringBuffer<char> _Buffer;
             auto _pProcessInfo = GetCurrentProcessInfo(_Buffer);
@@ -316,17 +304,17 @@ namespace YY::Thunks::internal
             {
                 auto& _Thread = _pProcessInfo->Threads[i];
 
-                if (_uCurrentThreadId == (DWORD)_Thread.ClientId.UniqueThread)
+                if (_uCurrentThreadId == static_cast<DWORD>(reinterpret_cast<UINT_PTR>(_Thread.ClientId.UniqueThread)))
                     continue;
 
-                auto _hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, (DWORD)_Thread.ClientId.UniqueThread);
+                auto _hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, static_cast<DWORD>(reinterpret_cast<UINT_PTR>(_Thread.ClientId.UniqueThread)));
                 if (!_hThread)
                 {
                     continue;
                 }
 
                 THREAD_BASIC_INFORMATION _ThreadBasicInfo = {};
-                LONG _Status = _pfnNtQueryInformationThread(_hThread, ThreadBasicInformation, &_ThreadBasicInfo, sizeof(_ThreadBasicInfo), nullptr);
+                LONG _Status = NtQueryInformationThread(_hThread, ThreadBasicInformation, &_ThreadBasicInfo, sizeof(_ThreadBasicInfo), nullptr);
                 if (_Status >= 0 && _ThreadBasicInfo.TebBaseAddress)
                 {
                     AllocTlsData((TEB*)_ThreadBasicInfo.TebBaseAddress);
@@ -391,7 +379,7 @@ namespace YY::Thunks::internal
         {
         }
     }
-#endif // YY_Thunks_Support_Version < NTDDI_WIN6
+#endif // YY_Thunks_Target < __WindowsNT6
 
     // 我们始终提供DllMainCRTStartupForYY_Thunks函数，虽然理论上Vista（包含）以上就不用修正了，但是为了做到体验统一
     // 避免Vista模式设置 DllMainCRTStartupForYY_Thunks 就发生链接失败问题。
@@ -410,7 +398,7 @@ namespace YY::Thunks::internal
         case DLL_PROCESS_ATTACH:
             _YY_initialize_winapi_thunks(ThunksInitStatus::InitByDllMain);
 
-#if YY_Thunks_Support_Version < NTDDI_WIN6
+#if YY_Thunks_Target < __WindowsNT6
             if (internal::GetSystemVersion() < internal::MakeVersion(6, 0))
             {
                 __declspec(allocate(".CRT$XLB")) static const PIMAGE_TLS_CALLBACK s_FirstCallback = FirstCallback;
@@ -429,7 +417,7 @@ namespace YY::Thunks::internal
 #endif
             return _pfnDllMainCRTStartup(_hInstance, _uReason, _pReserved);
             break;
-#if YY_Thunks_Support_Version < NTDDI_WIN6
+#if YY_Thunks_Target < __WindowsNT6
         case DLL_THREAD_ATTACH:
             if (internal::GetSystemVersion() < internal::MakeVersion(6, 0) && _tls_index_old == 0 && g_TlsMode == TlsMode::ByDllMainCRTStartupForYY_Thunks)
             {
@@ -453,11 +441,11 @@ namespace YY::Thunks::internal
             break;
 #endif
         case DLL_PROCESS_DETACH:
-#if (YY_Thunks_Support_Version < NTDDI_WINXP)
+#if (YY_Thunks_Target < __WindowsNT5_1)
             __YY_Thunks_Process_Terminating = _pReserved != nullptr;
 #endif
 
-#if YY_Thunks_Support_Version < NTDDI_WIN6
+#if YY_Thunks_Target < __WindowsNT6
             if (internal::GetSystemVersion() < internal::MakeVersion(6, 0) && _tls_index_old == 0 && g_TlsMode == TlsMode::ByDllMainCRTStartupForYY_Thunks)
             {
                 CallTlsCallback(_hInstance, _uReason);

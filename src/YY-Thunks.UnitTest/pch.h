@@ -25,12 +25,31 @@
 #include <vector>
 #include <string>
 
+#include <SharedDefs.h>
+
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 #define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)     \
     extern bool _CRT_CONCATENATE(aways_null_try_get_, _FUNCTION);                  \
 	EXTERN_C _RETURN_ _CONVENTION_ _FUNCTION(__VA_ARGS__);                         \
 	__if_not_exists(_FUNCTION)
+
+//#undef TEST_METHOD
+//
+//#define TEST_METHOD(methodName)\
+//	static const EXPORT_METHOD ::Microsoft::VisualStudio::CppUnitTestFramework::MemberMethodInfo* CALLING_CONVENTION CATNAME(__GetTestMethodInfo_, __COUNTER__)()\
+//	{\
+//		__GetTestClassInfo();\
+//		__GetTestVersion();\
+//		ALLOCATE_TESTDATA_SECTION_METHOD\
+//		static const ::Microsoft::VisualStudio::CppUnitTestFramework::MethodMetadata s_Metadata = {L"TestMethodInfo", L## #methodName, reinterpret_cast<const unsigned char*>(__FUNCTION__), reinterpret_cast<const unsigned char*>(__FUNCDNAME__), __WFILE__, __LINE__};\
+//\
+//		static ::Microsoft::VisualStudio::CppUnitTestFramework::MemberMethodInfo s_Info = {::Microsoft::VisualStudio::CppUnitTestFramework::MemberMethodInfo::TestMethod, {NULL}, &s_Metadata};\
+//		s_Info.method.pVoidMethod = static_cast<::Microsoft::VisualStudio::CppUnitTestFramework::TestClassImpl::__voidFunc>(&ThisClass::methodName);\
+//		return &s_Info;\
+//	}\
+//	void methodName()
+
 
 class AwaysNullGuard
 {
