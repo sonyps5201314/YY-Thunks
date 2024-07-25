@@ -297,8 +297,16 @@ namespace YY::Thunks::internal
             return (_uMajorVersion << 16) | _uMinorVersion;
         }
 
+#ifdef __YY_Thunks_Unit_Test     
+        EXTERN_C DWORD g_uSystemVersion = 0;
+#endif
+
         __forceinline DWORD __fastcall GetSystemVersion()
         {
+#ifdef __YY_Thunks_Unit_Test
+            if (g_uSystemVersion)
+                return g_uSystemVersion;
+#endif
             const auto _pPeb = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock;
             return internal::MakeVersion(_pPeb->OSMajorVersion, _pPeb->OSMinorVersion);
         }
@@ -382,6 +390,105 @@ namespace YY::Thunks::internal
                 Free(_p);
             }
         }
+
+        class CppAlloc
+        {
+        public:
+            _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+            void* __CRTDECL operator new(
+                size_t _Size
+                )
+            {
+                return Alloc(_Size);
+            }
+
+            _NODISCARD _Ret_maybenull_ _Success_(return != NULL) _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+            void* __CRTDECL operator new(
+                size_t _Size,
+                ::std::nothrow_t const&
+                ) noexcept
+            {
+                return Alloc(_Size);
+            }
+
+            _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+            void* __CRTDECL operator new[](
+                size_t _Size
+                )
+            {
+                return Alloc(_Size);
+            }
+
+            _NODISCARD _Ret_maybenull_ _Success_(return != NULL) _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+            void* __CRTDECL operator new[](
+                size_t _Size,
+                ::std::nothrow_t const&
+                ) noexcept
+            {
+                return Alloc(_Size);
+            }
+
+            /// <summary>
+            /// placement new
+            /// </summary>
+            /// <param name="_Size"></param>
+            /// <param name="_Block"></param>
+            /// <returns></returns>
+            void* __CRTDECL operator new(
+                size_t _Size,
+                void* _Block
+                )
+            {
+                return _Block;
+            }
+
+            void __CRTDECL operator delete(
+                void* _Block
+                ) noexcept
+            {
+                Free(_Block);
+            }
+
+            void __CRTDECL operator delete(
+                void* _Block,
+                ::std::nothrow_t const&
+                ) noexcept
+            {
+                Free(_Block);
+            }
+
+            void __CRTDECL operator delete[](
+                void* _Block
+                ) noexcept
+            {
+                Free(_Block);
+            }
+
+            void __CRTDECL operator delete[](
+                void* _Block,
+                ::std::nothrow_t const&
+                ) noexcept
+            {
+                Free(_Block);
+            }
+
+            void __CRTDECL operator delete(
+                void* _Block,
+                size_t _Size
+                ) noexcept
+            {
+                Free(_Block);
+            }
+
+            void __CRTDECL operator delete[](
+                void* _Block,
+                size_t _Size
+                ) noexcept
+            {
+                Free(_Block);
+            }
+        };
+
 
         //代码块，分割任务
         template<class Callback, typename... Params>
