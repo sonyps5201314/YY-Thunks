@@ -530,6 +530,7 @@
 | GetCalendarInfoEx                          | 不存在时，调用GetCalendarInfoW。
 | GetNLSVersionEx                            | 不存在时，返回一个假版本。
 | IsNLSDefinedString                         | 不存在时，调用GetStringTypeW。
+| FindNLSStringEx                            | 调用 CompareStringW。
 | SetProcessWorkingSetSizeEx                 | 不存在时，调用SetProcessWorkingSetSize。
 | GetProcessWorkingSetSizeEx                 | 不存在时，调用GetProcessWorkingSetSize。
 | GetTimeZoneInformationForYear              | 不存在时，直接读取`Time Zones`注册表。
@@ -733,6 +734,15 @@
 | GetAwarenessFromDpiAwarenessContext        | 内部实现。
 | AreDpiAwarenessContextsEqual               | 内部实现。
 | EnableNonClientDpiScaling                  | 假装成功。
+| GetPointerFrameTouchInfo                   | 报告错误 ERROR_INVALID_PARAMETER。
+| GetPointerFrameTouchInfoHistory            | 报告错误 ERROR_INVALID_PARAMETER。
+| GetPointerInfo                             | 报告错误 ERROR_INVALID_PARAMETER。
+| GetPointerPenInfoHistory                   | 报告错误 ERROR_INVALID_PARAMETER。
+| SkipPointerFrameMessages                   | 假装成功。
+| GetThreadDpiAwarenessContext               | 调用 GetProcessDpiAwareness。
+| GetWindowDpiAwarenessContext               | 调用 GetProcessDpiAwareness。
+| GetDisplayAutoRotationPreferences          | 返回 ORIENTATION_PREFERENCE_NONE。
+| SetDisplayAutoRotationPreferences          | 假装成功。
 
 ## userenv.dll
 | 函数                                       | Fallback
