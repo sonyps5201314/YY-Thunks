@@ -18,20 +18,20 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows 8 [桌面应用|UWP 应用]
     // 最低受支持的服务器	Windows Server 2012[桌面应用 | UWP 应用]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     20,
     ULONG,
     __stdcall,
-    EventSetInformation,
+    EtwEventSetInformation,
         _In_ REGHANDLE _hRegHandle,
         _In_ EVENT_INFO_CLASS _eInformationClass,
         _In_reads_bytes_(_cbInformationLength) PVOID _pEventInformation,
         _In_ ULONG _cbInformationLength
         )
     {
-        if (auto const _pfnEventSetInformation = try_get_EventSetInformation())
+        if (auto const _pfnEtwEventSetInformation = try_get_EtwEventSetInformation())
         {
-            return _pfnEventSetInformation(_hRegHandle, _eInformationClass, _pEventInformation, _cbInformationLength);
+            return _pfnEtwEventSetInformation(_hRegHandle, _eInformationClass, _pEventInformation, _cbInformationLength);
         }
 
         return ERROR_NOT_SUPPORTED;
@@ -44,18 +44,18 @@ namespace YY::Thunks
     // Minimum supported client	Windows Vista [desktop apps | UWP apps]
     // Minimum supported server	Windows Server 2008[desktop apps | UWP apps]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     8,
     ULONG,
     WINAPI,
-    EventActivityIdControl,
+    EtwEventActivityIdControl,
         _In_ ULONG _uControlCode,
         _Inout_ LPGUID _pActivityId
         )
     {
-        if (auto const _pfnEventActivityIdControl = try_get_EventActivityIdControl())
+        if (auto const _pfnEtwEventActivityIdControl = try_get_EtwEventActivityIdControl())
         {
-            return _pfnEventActivityIdControl(_uControlCode, _pActivityId);
+            return _pfnEtwEventActivityIdControl(_uControlCode, _pActivityId);
         }
             
         return ERROR_NOT_SUPPORTED;
@@ -68,20 +68,20 @@ namespace YY::Thunks
     // Minimum supported client	Windows Vista [desktop apps | UWP apps]
     // Minimum supported server	Windows Server 2008[desktop apps | UWP apps]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     16,
     ULONG,
     WINAPI,
-    EventRegister,
+    EtwEventRegister,
         _In_ LPCGUID _pProviderId,
         _In_opt_ PENABLECALLBACK _pfnEnableCallback,
         _In_opt_ PVOID _pCallbackContext,
         _Out_ PREGHANDLE _phRegHandle
         )
     {
-        if (auto const _pfnEventRegister = try_get_EventRegister())
+        if (auto const _pfnEtwEventRegister = try_get_EtwEventRegister())
         {
-            return _pfnEventRegister(_pProviderId, _pfnEnableCallback, _pCallbackContext, _phRegHandle);
+            return _pfnEtwEventRegister(_pProviderId, _pfnEnableCallback, _pCallbackContext, _phRegHandle);
         }
             
         return ERROR_NOT_SUPPORTED;
@@ -94,17 +94,17 @@ namespace YY::Thunks
     // Minimum supported client	Windows Vista [desktop apps | UWP apps]
     // Minimum supported server	Windows Server 2008[desktop apps | UWP apps]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     8,
     ULONG,
     WINAPI,
-    EventUnregister,
+    EtwEventUnregister,
         _In_ REGHANDLE _hRegHandle
         )
     {
-        if (auto const _pfnEventUnregister = try_get_EventUnregister())
+        if (auto const _pfnEtwEventUnregister = try_get_EtwEventUnregister())
         {
-            return _pfnEventUnregister(_hRegHandle);
+            return _pfnEtwEventUnregister(_hRegHandle);
         }
         return ERROR_NOT_SUPPORTED;
     }
@@ -143,11 +143,11 @@ namespace YY::Thunks
     // Minimum supported client	Windows Vista [desktop apps | UWP apps]
     // Minimum supported server	Windows Server 2008[desktop apps | UWP apps]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     28,
     ULONG,
     WINAPI,
-    EventWriteTransfer,
+    EtwEventWriteTransfer,
         _In_ REGHANDLE RegHandle,
         _In_ PCEVENT_DESCRIPTOR EventDescriptor,
         _In_opt_ LPCGUID ActivityId,
@@ -156,9 +156,9 @@ namespace YY::Thunks
         _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
         )
     {
-        if (auto const _pfnEventWriteTransfer = try_get_EventWriteTransfer())
+        if (auto const _pfnEtwEventWriteTransfer = try_get_EtwEventWriteTransfer())
         {
-            return _pfnEventWriteTransfer(RegHandle, EventDescriptor, ActivityId, RelatedActivityId, UserDataCount, UserData);
+            return _pfnEtwEventWriteTransfer(RegHandle, EventDescriptor, ActivityId, RelatedActivityId, UserDataCount, UserData);
         }
             
         return ERROR_NOT_SUPPORTED;
@@ -171,18 +171,18 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows Vista [仅限桌面应用]
     // 最低受支持的服务器	Windows Server 2008[仅限桌面应用]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     12,
     BOOLEAN,
     WINAPI,
-    EventEnabled,
+    EtwEventEnabled,
         _In_ REGHANDLE RegHandle,
         _In_ PCEVENT_DESCRIPTOR EventDescriptor
         )
     {
-        if (auto const _pfnEventEnabled = try_get_EventEnabled())
+        if (auto const _pfnEtwEventEnabled = try_get_EtwEventEnabled())
         {
-            return _pfnEventEnabled(RegHandle, EventDescriptor);
+            return _pfnEtwEventEnabled(RegHandle, EventDescriptor);
         }
             
         return FALSE;
@@ -195,20 +195,20 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows Vista [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2008[桌面应用 | UWP 应用]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     20,
     ULONG,
     WINAPI,
-    EventWrite,
+    EtwEventWrite,
         _In_ REGHANDLE RegHandle,
         _In_ PCEVENT_DESCRIPTOR EventDescriptor,
         _In_range_(0, MAX_EVENT_DATA_DESCRIPTORS) ULONG UserDataCount,
         _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
         )
     {
-        if (auto const _pfnEventWrite = try_get_EventWrite())
+        if (auto const _pfnEtwEventWrite = try_get_EtwEventWrite())
         {
-            return _pfnEventWrite(RegHandle, EventDescriptor, UserDataCount, UserData);
+            return _pfnEtwEventWrite(RegHandle, EventDescriptor, UserDataCount, UserData);
         }
             
         return ERROR_NOT_SUPPORTED;
@@ -221,11 +221,11 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows 7 [桌面应用 |UWP 应用]
     // 最低受支持的服务器	Windows Server 2008 R2[桌面应用 | UWP 应用]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     40,
     ULONG,
     WINAPI,
-    EventWriteEx,
+    EtwEventWriteEx,
         _In_ REGHANDLE RegHandle,
         _In_ PCEVENT_DESCRIPTOR EventDescriptor,
         _In_ ULONG64 Filter,
@@ -236,12 +236,12 @@ namespace YY::Thunks
         _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
         )
     {
-        if (auto const _pfnEventWriteEx = try_get_EventWriteEx())
+        if (auto const _pfnEtwEventWriteEx = try_get_EtwEventWriteEx())
         {
-            return _pfnEventWriteEx(RegHandle, EventDescriptor, Filter, Flags, ActivityId, RelatedActivityId, UserDataCount, UserData);
+            return _pfnEtwEventWriteEx(RegHandle, EventDescriptor, Filter, Flags, ActivityId, RelatedActivityId, UserDataCount, UserData);
         }
             
-        return ::EventWriteTransfer(RegHandle, EventDescriptor, ActivityId, RelatedActivityId, UserDataCount, UserData);
+        return ::EtwEventWriteTransfer(RegHandle, EventDescriptor, ActivityId, RelatedActivityId, UserDataCount, UserData);
     }
 #endif
 
@@ -251,20 +251,20 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows Vista [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2008[桌面应用 | UWP 应用]
     __DEFINE_THUNK(
-    advapi32,
+    ntdll,
     24,
     ULONG,
     WINAPI,
-    EventWriteString,
+    EtwEventWriteString,
         _In_ REGHANDLE RegHandle,
         _In_ UCHAR Level,
         _In_ ULONGLONG Keyword,
         _In_ PCWSTR String
         )
     {
-        if (auto const _pfnEventWriteString = try_get_EventWriteString())
+        if (auto const _pfnEtwEventWriteString = try_get_EtwEventWriteString())
         {
-            return _pfnEventWriteString(RegHandle, Level, Keyword, String);
+            return _pfnEtwEventWriteString(RegHandle, Level, Keyword, String);
         }
         return ERROR_NOT_SUPPORTED;
     }

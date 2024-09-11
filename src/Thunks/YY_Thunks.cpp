@@ -157,6 +157,12 @@ YY-Thunks支持的控制宏：
 #define __USING_NTDLL_LIB 1
 #endif
 
+#ifdef __FOR_NTDLL
+#define _NTSYSTEM_
+#define _KERNEL32_
+#define _EVNT_SOURCE_
+#endif
+
 #define _Disallow_YY_KM_Namespace
 #include "km.h"
 #include <Shlwapi.h>
@@ -164,6 +170,12 @@ YY-Thunks支持的控制宏：
 #include <ws2tcpip.h>
 #include <psapi.h>
 #include <winnls.h>
+
+#ifdef __FOR_NTDLL
+#define HeapAlloc RtlAllocateHeap
+#define HeapReAlloc RtlReAllocateHeap
+#define HeapFree RtlFreeHeap
+#endif
 
 #include <type_traits>
 
@@ -248,14 +260,21 @@ RtlCutoverTimeToSystemTime(
 #define __DEFINE_THUNK_EXTERN_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                      \
     __APPLY_UNIT_TEST_BOOL(_FUNCTION);                                                                                     \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__);                                     \
+    __pragma(comment(linker, "/export:"#_FUNCTION"=_"#_FUNCTION"@"#_SIZE))                                                 \
     static decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept;      \
     __if_not_exists(_CRT_CONCATENATE(try_get_, _FUNCTION))
 
 #define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 
+#ifdef __FOR_NTDLL
+#include "Thunks\YY_Thunks_List-ntdll.hpp"
+#else
 #include "Thunks\YY_Thunks_List.hpp"
+#endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 
 namespace YY::Thunks::internal
 {
@@ -1135,11 +1154,22 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
     _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
+    _DEFINE_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                                                 \
+    _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
+    EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#include "YY_Thunks_List.hpp"
+#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+
+#ifdef __FOR_NTDLL
+#include "Thunks\YY_Thunks_List-ntdll.hpp"
+#else
+#include "Thunks\YY_Thunks_List.hpp"
+#endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 #undef YY_Thunks_Implemented
 
 static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_t* module_name, int Flags) noexcept
@@ -1177,6 +1207,22 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
     }
     else
     {
+#ifdef __FOR_NTDLL
+        if (Flags & LOAD_AS_DATA_FILE)
+        {
+            __fastfail(FAST_FAIL_INVALID_ARG);
+        }
+        else if (Flags & USING_UNSAFE_LOAD)
+        {
+            __fastfail(FAST_FAIL_INVALID_ARG);
+        }
+        else
+        {
+            auto _sModuleName = YY::Thunks::internal::MakeNtString(module_name);
+            LdrLoadDll(nullptr, nullptr, &_sModuleName, &new_handle);
+        }
+        goto __AFTER_LOAD_MODULE__;
+#endif
         // 我们不能直接使用 LoadLibraryExW，因为它可能被Thunk。
         __if_exists(YY::Thunks::try_get_LoadLibraryExW)
         {
@@ -1225,6 +1271,7 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
         }
     }
 
+    __AFTER_LOAD_MODULE__:
     if (!new_handle)
     {
         if (HMODULE const cached_handle = __crt_interlocked_exchange_pointer(pModule, INVALID_HANDLE_VALUE))
@@ -1293,3 +1340,7 @@ static __forceinline void* __fastcall try_get_proc_address_from_first_available_
 
     return try_get_proc_address_from_dll(_ProcInfo);
 }
+
+#ifdef __FOR_NTDLL
+#include "ntdllWrapper.cpp"
+#endif

@@ -506,6 +506,7 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
 #define DEFAULT_SECURITY_COOKIE ((uintptr_t)0xBB40E64E)
 #endif  /* _WIN64 */
 
+#ifndef __FOR_NTDLL
 static UINT_PTR GetSecurityNewCookie()
 {
     /*
@@ -739,3 +740,13 @@ typedef void(__cdecl* _PVFV)(void);
 
 __declspec(allocate(".CRT$XID")) static _PIFV ___Initialization = __YY_initialize_winapi_thunks;
 __declspec(allocate(".CRT$XTY")) static _PVFV ___Uninitialization = __YY_uninitialize_winapi_thunks;
+#else
+ThunksInitStatus __cdecl _YY_initialize_winapi_thunks(ThunksInitStatus _sInitStatus)
+{
+    return _sInitStatus;
+}
+static void __cdecl __YY_uninitialize_winapi_thunks()
+{
+
+}
+#endif
