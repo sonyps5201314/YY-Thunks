@@ -535,6 +535,7 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
 #define DEFAULT_SECURITY_COOKIE ((uintptr_t)0xBB40E64E)
 #endif  /* _WIN64 */
 
+#ifndef __FOR_NTDLL
 static UINT_PTR GetSecurityNewCookie()
 {
     /*
@@ -665,7 +666,7 @@ static void __cdecl __YY_uninitialize_winapi_thunks()
     else if (s_pYY_ThunksSharedData)
     {
         // 来自共享内存的永远也不要释放这块内存。因为其他模块可能引用这些信息。
-        UnmapViewOfFile(s_pYY_ThunksSharedData);
+        NtUnmapViewOfSection(NtCurrentProcess(), s_pYY_ThunksSharedData);
     }
 }
 
@@ -775,3 +776,13 @@ typedef void(__cdecl* _PVFV)(void);
 
 __declspec(allocate(".CRT$XID")) static _PIFV ___Initialization = __YY_initialize_winapi_thunks;
 __declspec(allocate(".CRT$XTY")) static _PVFV ___Uninitialization = __YY_uninitialize_winapi_thunks;
+#else
+ThunksInitStatus __cdecl _YY_initialize_winapi_thunks(ThunksInitStatus _sInitStatus)
+{
+    return _sInitStatus;
+}
+static void __cdecl __YY_uninitialize_winapi_thunks()
+{
+
+}
+#endif

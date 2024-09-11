@@ -9,6 +9,7 @@
 #include <ntstatus.h>
 #include <Windows.h>
 #include <winnt.h>
+#include <evntprov.h>
 
 #pragma warning(push)
 // 忽略非标准的 0 数组警告。
@@ -3058,11 +3059,20 @@ NtQueryDirectoryFile (
 		PVOID Reserved1;
 	} SYSTEM_REGISTRY_QUOTA_INFORMATION, *PSYSTEM_REGISTRY_QUOTA_INFORMATION;
 
-	typedef struct _SYSTEM_BASIC_INFORMATION {
-		BYTE Reserved1[24];
-		PVOID Reserved2[4];
-		CCHAR NumberOfProcessors;
-	} SYSTEM_BASIC_INFORMATION, *PSYSTEM_BASIC_INFORMATION;
+    typedef struct _SYSTEM_BASIC_INFORMATION
+    {
+        ULONG Reserved;
+        ULONG TimerResolution;
+        ULONG PageSize;
+        ULONG NumberOfPhysicalPages;
+        ULONG LowestPhysicalPageNumber;
+        ULONG HighestPhysicalPageNumber;
+        ULONG AllocationGranularity;
+        ULONG_PTR MinimumUserModeAddress;
+        ULONG_PTR MaximumUserModeAddress;
+        KAFFINITY ActiveProcessorsAffinityMask;
+        CCHAR NumberOfProcessors;
+    } SYSTEM_BASIC_INFORMATION, * PSYSTEM_BASIC_INFORMATION;
 
 	typedef struct _SYSTEM_TIMEOFDAY_INFORMATION {
 		BYTE Reserved1[48];
@@ -4930,6 +4940,23 @@ RtlAllocateHeap(
     );
 #endif
 
+EXTERN_C
+NTSYSAPI
+_Success_(return != 0)
+_Must_inspect_result_
+_Ret_maybenull_
+_Post_writable_byte_size_(Size)
+_When_(Size > 0, __drv_allocatesMem(Mem))
+DECLSPEC_ALLOCATOR
+DECLSPEC_RESTRICT
+PVOID
+NTAPI
+RtlReAllocateHeap(
+    _In_ PVOID HeapHandle,
+    _In_ ULONG Flags,
+    _Frees_ptr_opt_ PVOID BaseAddress,
+    _In_ SIZE_T Size
+);
 
 #if (NTDDI_VERSION >= NTDDI_WIN8)
 EXTERN_C
@@ -5250,6 +5277,203 @@ EXTERN_C NTSYSAPI LONG NTAPI RtlCompareUnicodeString(
     _In_ PCUNICODE_STRING String2,
     _In_ BOOLEAN CaseInSensitive
     );
+
+EXTERN_C
+NTSTATUS
+NTAPI
+LdrGetDllHandle(
+    _In_opt_ PWSTR DllPath,
+    _In_opt_ PULONG DllCharacteristics,
+    _In_ PUNICODE_STRING DllName,
+    _Out_ PVOID* DllHandle
+);
+
+EXTERN_C
+BOOLEAN
+NTAPI
+LdrUnloadAlternateResourceModule(
+    _In_ PVOID DllHandle
+);
+
+#define EVENT_QUERY_STATE       0x0001
+
+EXTERN_C
+NTSTATUS
+NTAPI
+NtClearEvent(
+    _In_ HANDLE EventHandle
+);
+
+EXTERN_C
+NTSYSAPI
+PVOID
+NTAPI
+RtlEncodePointer(
+    _In_ PVOID Ptr
+);
+
+EXTERN_C
+NTSYSAPI
+PVOID
+NTAPI
+RtlDecodePointer(
+    _In_ PVOID Ptr
+);
+
+EXTERN_C
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlInitializeCriticalSectionAndSpinCount(
+    _Inout_ PRTL_CRITICAL_SECTION CriticalSection,
+    _In_ ULONG SpinCount
+);
+
+typedef _Function_class_(RTL_RUN_ONCE_INIT_FN)
+LOGICAL NTAPI RTL_RUN_ONCE_INIT_FN(
+    _Inout_ PRTL_RUN_ONCE RunOnce,
+    _Inout_opt_ PVOID Parameter,
+    _Inout_opt_ PVOID* Context
+);
+typedef RTL_RUN_ONCE_INIT_FN* PRTL_RUN_ONCE_INIT_FN;
+
+typedef _Function_class_(RTL_RUN_ONCE_INIT_FN)
+LOGICAL NTAPI RTL_RUN_ONCE_INIT_FN(
+    _Inout_ PRTL_RUN_ONCE RunOnce,
+    _Inout_opt_ PVOID Parameter,
+    _Inout_opt_ PVOID* Context
+);
+typedef RTL_RUN_ONCE_INIT_FN* PRTL_RUN_ONCE_INIT_FN;
+
+EXTERN_C
+_Maybe_raises_SEH_exception_
+NTSYSAPI
+NTSTATUS
+NTAPI
+RtlRunOnceExecuteOnce(
+    _Inout_ PRTL_RUN_ONCE RunOnce,
+    _In_ __callback PRTL_RUN_ONCE_INIT_FN InitFn,
+    _Inout_opt_ PVOID Parameter,
+    _Outptr_opt_result_maybenull_ PVOID* Context
+);
+
+EXTERN_C
+NTSYSAPI
+VOID
+NTAPI
+RtlWakeAddressAll(
+    _In_ PVOID Address
+);
+
+EXTERN_C
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtOpenThread(
+    _Out_ PHANDLE ThreadHandle,
+    _In_ ACCESS_MASK DesiredAccess,
+    _In_ POBJECT_ATTRIBUTES ObjectAttributes,
+    _In_opt_ PCLIENT_ID ClientId
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventRegister(
+    _In_ LPCGUID ProviderId,
+    _In_opt_ PENABLECALLBACK EnableCallback,
+    _In_opt_ PVOID CallbackContext,
+    _Out_ PREGHANDLE RegHandle
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventUnregister(
+    _In_ REGHANDLE RegHandle
+);
+
+typedef enum _EVENT_INFO_CLASS EVENT_INFO_CLASS;
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventSetInformation(
+    _In_ REGHANDLE RegHandle,
+    _In_ EVENT_INFO_CLASS InformationClass,
+    _In_reads_bytes_(InformationLength) PVOID EventInformation,
+    _In_ ULONG InformationLength
+);
+
+EXTERN_C
+NTSYSAPI
+BOOLEAN
+NTAPI
+EtwEventEnabled(
+    _In_ REGHANDLE RegHandle,
+    _In_ PCEVENT_DESCRIPTOR EventDescriptor
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventWrite(
+    _In_ REGHANDLE RegHandle,
+    _In_ PCEVENT_DESCRIPTOR EventDescriptor,
+    _In_ ULONG UserDataCount,
+    _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventWriteTransfer(
+    _In_ REGHANDLE RegHandle,
+    _In_ PCEVENT_DESCRIPTOR EventDescriptor,
+    _In_opt_ LPCGUID ActivityId,
+    _In_opt_ LPCGUID RelatedActivityId,
+    _In_ ULONG UserDataCount,
+    _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventWriteString(
+    _In_ REGHANDLE RegHandle,
+    _In_ UCHAR Level,
+    _In_ ULONGLONG Keyword,
+    _In_ PCWSTR String
+);
+
+EXTERN_C
+ULONG
+NTAPI
+EtwEventWriteEx(
+    _In_ REGHANDLE RegHandle,
+    _In_ PCEVENT_DESCRIPTOR EventDescriptor,
+    _In_ ULONG64 Filter,
+    _In_ ULONG Flags,
+    _In_opt_ LPCGUID ActivityId,
+    _In_opt_ LPCGUID RelatedActivityId,
+    _In_ ULONG UserDataCount,
+    _In_reads_opt_(UserDataCount) PEVENT_DATA_DESCRIPTOR UserData
+);
+
+EXTERN_C
+NTSYSAPI
+ULONG
+NTAPI
+EtwEventActivityIdControl(
+    _In_ ULONG ControlCode,
+    _Inout_ LPGUID ActivityId
+);
 
 #pragma warning(pop)
 #if defined __cplusplus && !defined _Disallow_YY_KM_Namespace
