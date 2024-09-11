@@ -222,7 +222,7 @@ namespace YY::Thunks::internal
                 const auto _hLastKeyedEventHandle = (HANDLE)InterlockedCompareExchange((size_t*)&_pSharedData->hGlobalKeyedEventHandle, (size_t)KeyedEventHandle, (size_t)nullptr);
                 if (_hLastKeyedEventHandle)
                 {
-                    CloseHandle(KeyedEventHandle);
+                    NtClose(KeyedEventHandle);
                     return _hLastKeyedEventHandle;
                 }
                 else
@@ -1316,22 +1316,46 @@ namespace YY::Thunks
 
     //Windows Vista, Windows Server 2008
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     12,
-    BOOL,
+    NTSTATUS,
     WINAPI,
-    InitializeCriticalSectionEx,
+    RtlInitializeCriticalSectionEx,
+        _Out_ PRTL_CRITICAL_SECTION lpCriticalSection,
+        _In_ ULONG dwSpinCount,
+        _In_ ULONG Flags
+        )
+    {
+        if (auto const pRtlInitializeCriticalSectionEx = try_get_RtlInitializeCriticalSectionEx())
+        {
+            return pRtlInitializeCriticalSectionEx(lpCriticalSection, dwSpinCount, Flags);
+        }
+
+        return RtlInitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount);
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+        kernel32,
+        12,
+        BOOL,
+        WINAPI,
+        InitializeCriticalSectionEx,
         _Out_ LPCRITICAL_SECTION lpCriticalSection,
         _In_ DWORD dwSpinCount,
         _In_ DWORD Flags
-        )
+    )
     {
-        if (auto const pInitializeCriticalSectionEx = try_get_InitializeCriticalSectionEx())
-        {
-            return pInitializeCriticalSectionEx(lpCriticalSection, dwSpinCount, Flags);
-        }
+        auto Status = RtlInitializeCriticalSectionEx(lpCriticalSection, dwSpinCount, Flags);
 
-        return InitializeCriticalSectionAndSpinCount(lpCriticalSection, dwSpinCount);
+        if (Status >= STATUS_SUCCESS)
+        {
+            return TRUE;
+        }
+        else
+        {
+            internal::BaseSetLastNTError(Status);
+            return FALSE;
+        }
     }
 #endif
 
@@ -1341,11 +1365,11 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    InitOnceInitialize,
+    RtlRunOnceInitialize,
         _Out_ PINIT_ONCE InitOnce
         )
     {
@@ -1359,6 +1383,25 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
+    ntdll,
+    12,
+    NTSTATUS,
+    NTAPI,
+    RtlRunOnceBeginInitialize,
+        _Inout_ PRTL_RUN_ONCE lpInitOnce,
+        _In_ ULONG dwFlags,
+        _Outptr_opt_result_maybenull_ PVOID* lpContext
+        )
+    {
+        if (auto const pRtlRunOnceBeginInitialize = try_get_RtlRunOnceBeginInitialize())
+        {
+            return pRtlRunOnceBeginInitialize(lpInitOnce, dwFlags, lpContext);
+        }
+
+        return internal::RtlRunOnceBeginInitialize(lpInitOnce, dwFlags, lpContext);
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
     kernel32,
     16,
     _Success_(return)
@@ -1371,12 +1414,7 @@ namespace YY::Thunks
         _Outptr_opt_result_maybenull_ LPVOID* lpContext
         )
     {
-        if (auto const pInitOnceBeginInitialize = try_get_InitOnceBeginInitialize())
-        {
-            return pInitOnceBeginInitialize(lpInitOnce, dwFlags, fPending, lpContext);
-        }
-
-        auto Status = internal::RtlRunOnceBeginInitialize(lpInitOnce, dwFlags, lpContext);
+        auto Status = RtlRunOnceBeginInitialize(lpInitOnce, dwFlags, lpContext);
 
         if (Status >= STATUS_SUCCESS)
         {
@@ -1397,6 +1435,25 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
+    ntdll,
+    12,
+    NTSTATUS,
+    NTAPI,
+    RtlRunOnceComplete,
+        _Inout_ LPINIT_ONCE lpInitOnce,
+        _In_ DWORD dwFlags,
+        _In_opt_ LPVOID lpContext
+        )
+    {
+        if (auto const pRtlRunOnceComplete = try_get_RtlRunOnceComplete())
+        {
+            return pRtlRunOnceComplete(lpInitOnce, dwFlags, lpContext);
+        }
+    
+        return internal::RtlRunOnceComplete(lpInitOnce, dwFlags, lpContext);
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
     kernel32,
     12,
     BOOL,
@@ -1405,14 +1462,9 @@ namespace YY::Thunks
         _Inout_ LPINIT_ONCE lpInitOnce,
         _In_ DWORD dwFlags,
         _In_opt_ LPVOID lpContext
-        )
+    )
     {
-        if (auto const pInitOnceComplete = try_get_InitOnceComplete())
-        {
-            return pInitOnceComplete(lpInitOnce, dwFlags, lpContext);
-        }
-    
-        auto Status = internal::RtlRunOnceComplete(lpInitOnce, dwFlags, lpContext);
+        auto Status = RtlRunOnceComplete(lpInitOnce, dwFlags, lpContext);
 
         if (Status >= 0)
         {
@@ -1432,20 +1484,20 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
-    16,
-    BOOL,
-    WINAPI,
-    InitOnceExecuteOnce,
-        _Inout_ PINIT_ONCE InitOnce,
-        _In_ __callback PINIT_ONCE_FN InitFn,
+        ntdll,
+        16,
+        BOOL,
+        WINAPI,
+        RtlRunOnceExecuteOnce,
+        _Inout_ PRTL_RUN_ONCE InitOnce,
+        _In_ __callback PRTL_RUN_ONCE_INIT_FN InitFn,
         _Inout_opt_ PVOID Parameter,
-        _Outptr_opt_result_maybenull_ LPVOID* Context
-        )
+        _Outptr_opt_result_maybenull_ PVOID* Context
+    )
     {
-        if (auto const pInitOnceExecuteOnce = try_get_InitOnceExecuteOnce())
+        if (auto const pRtlRunOnceExecuteOnce = try_get_RtlRunOnceExecuteOnce())
         {
-            return pInitOnceExecuteOnce(InitOnce, InitFn, Parameter, Context);
+            return pRtlRunOnceExecuteOnce(InitOnce, InitFn, Parameter, Context);
         }
 
         auto Status = internal::RtlRunOnceBeginInitialize(InitOnce, 0, Context);
@@ -1492,13 +1544,28 @@ namespace YY::Thunks
             RaiseException(Status, EXCEPTION_NONCONTINUABLE, 1, &ExceptionArgument);
 
         } while (false);
+        return Status;
+    }
 
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+    kernel32,
+    16,
+    BOOL,
+    WINAPI,
+    InitOnceExecuteOnce,
+        _Inout_ PINIT_ONCE InitOnce,
+        _In_ __callback PINIT_ONCE_FN InitFn,
+        _Inout_opt_ PVOID Parameter,
+        _Outptr_opt_result_maybenull_ LPVOID* Context
+        )
+    {
         //别问我为什么不设置LastError……，Windows 7的这个函数也没设置 LastError，既然这样，我们都偷懒下吧，行为跟微软保持一致。
-        return Status >= STATUS_SUCCESS;
+        return ::RtlRunOnceExecuteOnce(InitOnce, (PRTL_RUN_ONCE_INIT_FN)InitFn, Parameter, Context) >= STATUS_SUCCESS;
     }
 #endif
 
 
+#ifndef __FOR_NTDLL
 #if (YY_Thunks_Target < __WindowsNT6)
 
     //Windows Vista [desktop apps | UWP apps]
@@ -1655,18 +1722,18 @@ namespace YY::Thunks
         return CreateWaitableTimerW(lpTimerAttributes, dwFlags&CREATE_WAITABLE_TIMER_MANUAL_RESET, lpTimerName);
     }
 #endif
-
+#endif
 
 #if (YY_Thunks_Target < __WindowsNT6)
 
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    InitializeSRWLock,
+    RtlInitializeSRWLock,
         _Out_ PSRWLOCK SRWLock
         )
     {
@@ -1680,17 +1747,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    AcquireSRWLockExclusive,
+    RtlAcquireSRWLockExclusive,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pAcquireSRWLockExclusive = try_get_AcquireSRWLockExclusive())
+        if (auto const pRtlAcquireSRWLockExclusive = try_get_RtlAcquireSRWLockExclusive())
         {
-            return pAcquireSRWLockExclusive(SRWLock);
+            return pRtlAcquireSRWLockExclusive(SRWLock);
         }
 
         YY_SRWLOCK_WAIT_BLOCK StackWaitBlock;
@@ -1815,17 +1882,17 @@ namespace YY::Thunks
     //Windows 7 [desktop apps | UWP apps]
     //Windows Server 2008 R2 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     BOOLEAN,
     WINAPI,
-    TryAcquireSRWLockExclusive,
+    RtlTryAcquireSRWLockExclusive,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pTryAcquireSRWLockExclusive = try_get_TryAcquireSRWLockExclusive())
+        if (auto const pRtlTryAcquireSRWLockExclusive = try_get_RtlTryAcquireSRWLockExclusive())
         {
-            return pTryAcquireSRWLockExclusive(SRWLock);
+            return pRtlTryAcquireSRWLockExclusive(SRWLock);
         }
 
 #if defined(_WIN64)
@@ -1842,17 +1909,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    ReleaseSRWLockExclusive,
+    RtlReleaseSRWLockExclusive,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pReleaseSRWLockExclusive = try_get_ReleaseSRWLockExclusive())
+        if (auto const pRtlReleaseSRWLockExclusive = try_get_RtlReleaseSRWLockExclusive())
         {
-            return pReleaseSRWLockExclusive(SRWLock);
+            return pRtlReleaseSRWLockExclusive(SRWLock);
         }
 
         auto OldSRWLock = InterlockedExchangeAdd((volatile size_t *)SRWLock, size_t(-1));
@@ -1880,17 +1947,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    AcquireSRWLockShared,
+    RtlAcquireSRWLockShared,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pAcquireSRWLockShared = try_get_AcquireSRWLockShared())
+        if (auto const pRtlAcquireSRWLockShared = try_get_RtlAcquireSRWLockShared())
         {
-            return pAcquireSRWLockShared(SRWLock);
+            return pRtlAcquireSRWLockShared(SRWLock);
         }
 
         YY_SRWLOCK_WAIT_BLOCK StackWaitBlock;
@@ -2007,17 +2074,17 @@ namespace YY::Thunks
     //Windows 7 [desktop apps | UWP apps] 
     //Windows Server 2008 R2 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     BOOLEAN,
     WINAPI,
-    TryAcquireSRWLockShared,
+    RtlTryAcquireSRWLockShared,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pTryAcquireSRWLockShared = try_get_TryAcquireSRWLockShared())
+        if (auto const pRtlTryAcquireSRWLockShared = try_get_RtlTryAcquireSRWLockShared())
         {
-            return pTryAcquireSRWLockShared(SRWLock);
+            return pRtlTryAcquireSRWLockShared(SRWLock);
         }
 
         //尝试给全新的锁加锁
@@ -2065,17 +2132,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    ReleaseSRWLockShared,
+    RtlReleaseSRWLockShared,
         _Inout_ PSRWLOCK SRWLock
         )
     {
-        if (auto const pReleaseSRWLockShared = try_get_ReleaseSRWLockShared())
+        if (auto const pRtlReleaseSRWLockShared = try_get_RtlReleaseSRWLockShared())
         {
-            return pReleaseSRWLockShared(SRWLock);
+            return pRtlReleaseSRWLockShared(SRWLock);
         }
 
         //尝试解锁只加一次读锁的情况
@@ -2162,11 +2229,11 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    InitializeConditionVariable,
+    RtlInitializeConditionVariable,
         _Out_ PCONDITION_VARIABLE ConditionVariable
         )
     {
@@ -2180,19 +2247,19 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     12,
-    BOOL,
-    WINAPI,
-    SleepConditionVariableCS,
-        _Inout_ PCONDITION_VARIABLE ConditionVariable,
-        _Inout_ PCRITICAL_SECTION   CriticalSection,
-        _In_    DWORD               dwMilliseconds
+    NTSTATUS,
+    NTAPI,
+    RtlSleepConditionVariableCS,
+        _Inout_ PRTL_CONDITION_VARIABLE ConditionVariable,
+        _Inout_ PRTL_CRITICAL_SECTION CriticalSection,
+        _In_opt_ PLARGE_INTEGER Timeout
         )
     {
-        if (auto const pSleepConditionVariableCS = try_get_SleepConditionVariableCS())
+        if (auto const pRtlSleepConditionVariableCS = try_get_RtlSleepConditionVariableCS())
         {
-            return pSleepConditionVariableCS(ConditionVariable, CriticalSection, dwMilliseconds);
+            return pRtlSleepConditionVariableCS(ConditionVariable, CriticalSection, Timeout);
         }
 
         YY_CV_WAIT_BLOCK StackWaitBlock;
@@ -2230,7 +2297,7 @@ namespace YY::Thunks
             OldConditionVariable = LastConditionVariable;
         }
 
-        LeaveCriticalSection(CriticalSection);
+        RtlLeaveCriticalSection(CriticalSection);
 
         //0x8 标记新增时，才进行优化 ConditionVariableWaitList
         if ((OldConditionVariable ^ NewConditionVariable) & 0x8)
@@ -2260,9 +2327,7 @@ namespace YY::Thunks
 
         if (InterlockedBitTestAndReset((volatile LONG*)&StackWaitBlock.flag, 1))
         {
-            LARGE_INTEGER TimeOut;
-
-            Status = NtWaitForKeyedEvent(GlobalKeyedEventHandle, (PVOID)&StackWaitBlock, 0, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds));
+            Status = NtWaitForKeyedEvent(GlobalKeyedEventHandle, (PVOID)&StackWaitBlock, 0, Timeout);
 
             if (Status == STATUS_TIMEOUT && internal::RtlpWakeSingle(ConditionVariable, &StackWaitBlock) == FALSE)
             {
@@ -2271,7 +2336,25 @@ namespace YY::Thunks
             }
         }
 
-        EnterCriticalSection(CriticalSection);
+        RtlEnterCriticalSection(CriticalSection);
+
+        return Status;
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+    kernel32,
+    12,
+    BOOL,
+    WINAPI,
+    SleepConditionVariableCS,
+        _Inout_ PCONDITION_VARIABLE ConditionVariable,
+        _Inout_ PCRITICAL_SECTION   CriticalSection,
+        _In_    DWORD               dwMilliseconds
+        )
+    {
+        LARGE_INTEGER TimeOut;
+
+        auto Status = RtlSleepConditionVariableCS(ConditionVariable, CriticalSection, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds));
 
         internal::BaseSetLastNTError(Status);
 
@@ -2285,20 +2368,20 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     16,
-    BOOL,
-    WINAPI,
-    SleepConditionVariableSRW,
-        _Inout_ PCONDITION_VARIABLE ConditionVariable,
-        _Inout_ PSRWLOCK SRWLock,
-        _In_ DWORD dwMilliseconds,
+    NTSTATUS,
+    NTAPI,
+    RtlSleepConditionVariableSRW,
+        _Inout_ PRTL_CONDITION_VARIABLE ConditionVariable,
+        _Inout_ PRTL_SRWLOCK SRWLock,
+        _In_opt_ PLARGE_INTEGER Timeout,
         _In_ ULONG Flags
         )
     {
-        if (auto const pSleepConditionVariableSRW = try_get_SleepConditionVariableSRW())
+        if (auto const pRtlSleepConditionVariableSRW = try_get_RtlSleepConditionVariableSRW())
         {
-            return pSleepConditionVariableSRW(ConditionVariable, SRWLock, dwMilliseconds, Flags);
+            return pRtlSleepConditionVariableSRW(ConditionVariable, SRWLock, Timeout, Flags);
         }
 
         YY_CV_WAIT_BLOCK StackWaitBlock;
@@ -2353,9 +2436,9 @@ namespace YY::Thunks
             }
 
             if (Flags& CONDITION_VARIABLE_LOCKMODE_SHARED)
-                ReleaseSRWLockShared(SRWLock);
+                RtlReleaseSRWLockShared(SRWLock);
             else
-                ReleaseSRWLockExclusive(SRWLock);
+                RtlReleaseSRWLockExclusive(SRWLock);
 
             if ((Current ^ New) & 0x8)
             {
@@ -2383,9 +2466,7 @@ namespace YY::Thunks
 
             if (InterlockedBitTestAndReset((volatile LONG*)&StackWaitBlock.flag, 1))
             {
-                LARGE_INTEGER TimeOut;
-
-                Status = NtWaitForKeyedEvent(GlobalKeyedEventHandle, (PVOID)&StackWaitBlock, 0, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds));
+                Status = NtWaitForKeyedEvent(GlobalKeyedEventHandle, (PVOID)&StackWaitBlock, 0, Timeout);
 
                 if (Status == STATUS_TIMEOUT && internal::RtlpWakeSingle(ConditionVariable, &StackWaitBlock) == FALSE)
                 {
@@ -2395,17 +2476,35 @@ namespace YY::Thunks
             }
 
             if (Flags& CONDITION_VARIABLE_LOCKMODE_SHARED)
-                AcquireSRWLockShared(SRWLock);
+                RtlAcquireSRWLockShared(SRWLock);
             else
-                AcquireSRWLockExclusive(SRWLock);
+                RtlAcquireSRWLockExclusive(SRWLock);
 
         } while (false);
 
+        return Status;
+
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+    kernel32,
+    16,
+    BOOL,
+    WINAPI,
+    SleepConditionVariableSRW,
+        _Inout_ PCONDITION_VARIABLE ConditionVariable,
+        _Inout_ PSRWLOCK SRWLock,
+        _In_ DWORD dwMilliseconds,
+        _In_ ULONG Flags
+        )
+    {
+        LARGE_INTEGER TimeOut;
+
+        auto Status = RtlSleepConditionVariableSRW(ConditionVariable, SRWLock, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds), Flags);
 
         internal::BaseSetLastNTError(Status);
 
         return Status >= 0 && Status != STATUS_TIMEOUT;
-
     }
 #endif
 
@@ -2415,17 +2514,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    WakeConditionVariable,
+    RtlWakeConditionVariable,
         _Inout_ PCONDITION_VARIABLE ConditionVariable
         )
     {
-        if (auto const pWakeConditionVariable = try_get_WakeConditionVariable())
+        if (auto const pRtlWakeConditionVariable = try_get_RtlWakeConditionVariable())
         {
-            return pWakeConditionVariable(ConditionVariable);
+            return pRtlWakeConditionVariable(ConditionVariable);
         }
 
         size_t Current = *(volatile size_t*)ConditionVariable;
@@ -2463,17 +2562,17 @@ namespace YY::Thunks
     //Windows Vista [desktop apps | UWP apps]
     //Windows Server 2008 [desktop apps | UWP apps]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    WakeAllConditionVariable,
+    RtlWakeAllConditionVariable,
         _Inout_ PCONDITION_VARIABLE ConditionVariable
         )
     {
-        if (auto const pWakeAllConditionVariable = try_get_WakeAllConditionVariable())
+        if (auto const pRtlWakeAllConditionVariable = try_get_RtlWakeAllConditionVariable())
         {
-            return pWakeAllConditionVariable(ConditionVariable);
+            return pRtlWakeAllConditionVariable(ConditionVariable);
         }
 
         size_t Current = *(volatile size_t*)ConditionVariable;
@@ -2518,6 +2617,46 @@ namespace YY::Thunks
     //Windows 8 [desktop apps only]
     //Windows Server 2012 [desktop apps only]
     __DEFINE_THUNK(
+    ntdll,
+    12,
+    NTSTATUS,
+    NTAPI,
+    RtlInitBarrier,
+        _Out_ PRTL_BARRIER lpBarrier,
+        _In_ ULONG lTotalThreads,
+        _In_ ULONG lSpinCount
+        )
+    {
+        if (auto const pRtlInitBarrier = try_get_RtlInitBarrier())
+        {
+            return pRtlInitBarrier(lpBarrier, lTotalThreads, lSpinCount);
+        }
+
+        auto pYYBarrier = (YY_BARRIER*)lpBarrier;
+
+        pYYBarrier->lTotalThreads = lTotalThreads;
+        pYYBarrier->lRemainderThreads = lTotalThreads;
+        pYYBarrier->dwNumProcessors = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->NumberOfProcessors;
+        pYYBarrier->dwSpinCount = lSpinCount == -1 ? 2000 : lSpinCount;
+
+        auto Status = NtCreateEvent(&pYYBarrier->hEvent[0], SYNCHRONIZE | EVENT_QUERY_STATE | EVENT_MODIFY_STATE, nullptr, NotificationEvent, FALSE);
+        if (Status >= 0)
+        {
+            auto Status = NtCreateEvent(&pYYBarrier->hEvent[1], SYNCHRONIZE | EVENT_QUERY_STATE | EVENT_MODIFY_STATE, nullptr, NotificationEvent, FALSE);
+            if (Status >= 0)
+            {
+                return STATUS_SUCCESS;
+            }
+            else
+            {
+                NtClose(pYYBarrier->hEvent[0]);
+                return Status;
+            }
+        }
+        return Status;
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
     kernel32,
     12,
     BOOL,
@@ -2528,30 +2667,19 @@ namespace YY::Thunks
         _In_ LONG lSpinCount
         )
     {
-        if (auto const pEnterSynchronizationBarrier = try_get_InitializeSynchronizationBarrier())
+        NTSTATUS Status;
+        if (lTotalThreads < 1 || lSpinCount < -1)
         {
-            return pEnterSynchronizationBarrier(lpBarrier, lTotalThreads, lSpinCount);
+            Status = STATUS_INVALID_PARAMETER;
         }
-
-        auto pYYBarrier = (YY_BARRIER*)lpBarrier;
-
-        pYYBarrier->lTotalThreads = lTotalThreads;
-        pYYBarrier->lRemainderThreads = lTotalThreads;
-        pYYBarrier->dwNumProcessors = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock->NumberOfProcessors;
-        pYYBarrier->dwSpinCount = lSpinCount == -1 ? 2000 : lSpinCount;
-
-        if ((pYYBarrier->hEvent[0] = CreateEventW(nullptr, TRUE, FALSE, nullptr)) == nullptr)
-            return FALSE;
-
-        if ((pYYBarrier->hEvent[1] = CreateEventW(nullptr, TRUE, FALSE, nullptr)) == nullptr)
+        else
         {
-            auto lStatus = GetLastError();
-            CloseHandle(pYYBarrier->hEvent[0]);
-            SetLastError(lStatus);
-            return FALSE;
+            Status = RtlInitBarrier(lpBarrier, lTotalThreads, lSpinCount);
+            if (Status >= 0)
+                return TRUE;
         }
-
-        return TRUE;
+        internal::BaseSetLastNTError(Status);
+        return FALSE;
     }
 #endif
 
@@ -2561,30 +2689,19 @@ namespace YY::Thunks
     //Windows 8 [desktop apps only]
     //Windows Server 2012 [desktop apps only]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     8,
-    BOOL,
-    WINAPI,
-    EnterSynchronizationBarrier,
-        _Inout_ LPSYNCHRONIZATION_BARRIER lpBarrier,
-        _In_ DWORD dwFlags
+    BOOLEAN,
+    NTAPI,
+    RtlBarrier,
+        _Inout_ PRTL_BARRIER lpBarrier,
+        _In_ ULONG dwRtlBarrierFlags
         )
     {
-        if (auto const pEnterSynchronizationBarrier = try_get_EnterSynchronizationBarrier())
+        if (auto const pRtlBarrier = try_get_RtlBarrier())
         {
-            return pEnterSynchronizationBarrier(lpBarrier, dwFlags);
+            return pRtlBarrier(lpBarrier, dwRtlBarrierFlags);
         }
-
-        if (dwFlags & ~(SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_NO_DELETE))
-        {
-            internal::RaiseStatus(STATUS_INVALID_PARAMETER);
-        }
-
-        DWORD dwRtlBarrierFlags = dwFlags & (SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY);
-
-        if ((dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_NO_DELETE) == 0)
-            dwRtlBarrierFlags |= 0x10000;
-
 
         auto pYYBarrier = (YY_BARRIER*)lpBarrier;
 
@@ -2609,7 +2726,7 @@ namespace YY::Thunks
                 auto hEvent = (HANDLE)(size_t(NewEvent) & ~size_t(0x1));
                 pYYBarrier->hEvent[NewEventIndex] = hEvent;
 
-                ResetEvent(hEvent);
+                NtClearEvent(hEvent);
             }
 
             //吧当前的 GroupStatus 状态置反，然后组合成新的 RemainderThreads
@@ -2625,7 +2742,7 @@ namespace YY::Thunks
             auto Event = pYYBarrier->hEvent[EventIndex];
             if (size_t(Event) & 0x1)
             {
-                SetEvent((HANDLE)(size_t(Event) & ~size_t(0x1)));
+                NtSetEvent((HANDLE)(size_t(Event) & ~size_t(0x1)), nullptr);
             }
 
             return TRUE;
@@ -2680,7 +2797,7 @@ namespace YY::Thunks
             }
 
             if ((pYYBarrier->lRemainderThreads & 0x80000000) == GroupStatus)
-                WaitForSingleObject((HANDLE)(size_t(hEnvet) & ~size_t(0x1)), INFINITE);
+                NtWaitForSingleObject((HANDLE)(size_t(hEnvet) & ~size_t(0x1)), FALSE, nullptr);
         }
 
     __retrun:
@@ -2690,6 +2807,29 @@ namespace YY::Thunks
 
         return FALSE;
     }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+    kernel32,
+    8,
+    BOOL,
+    WINAPI,
+    EnterSynchronizationBarrier,
+        _Inout_ LPSYNCHRONIZATION_BARRIER lpBarrier,
+        _In_ DWORD dwFlags
+        )
+    {
+        if (dwFlags & ~(SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_NO_DELETE))
+        {
+            internal::RaiseStatus(STATUS_INVALID_PARAMETER);
+        }
+
+        DWORD dwRtlBarrierFlags = dwFlags & (SYNCHRONIZATION_BARRIER_FLAGS_SPIN_ONLY | SYNCHRONIZATION_BARRIER_FLAGS_BLOCK_ONLY);
+
+        if ((dwFlags & SYNCHRONIZATION_BARRIER_FLAGS_NO_DELETE) == 0)
+            dwRtlBarrierFlags |= 0x10000;
+
+        return RtlBarrier(lpBarrier, dwRtlBarrierFlags);
+    }
 #endif
 
 
@@ -2698,34 +2838,34 @@ namespace YY::Thunks
     //Windows 8 [desktop apps only]
     //Windows Server 2012 [desktop apps only]
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     BOOL,
-    WINAPI,
-    DeleteSynchronizationBarrier,
-        _Inout_ LPSYNCHRONIZATION_BARRIER lpBarrier
+    NTAPI,
+    RtlDeleteBarrier,
+        _Inout_ PRTL_BARRIER lpBarrier
         )
     {
-        if (auto const pDeleteSynchronizationBarrier = try_get_DeleteSynchronizationBarrier())
+        if (auto const pRtlDeleteBarrier = try_get_RtlDeleteBarrier())
         {
-            return pDeleteSynchronizationBarrier(lpBarrier);
+            return pRtlDeleteBarrier(lpBarrier);
         }
 
         auto pYYBarrier = (YY_BARRIER*)lpBarrier;
 
-        //自旋等待所有 EnterSynchronizationBarrier 都进入就绪
+        //自旋等待所有 RtlBarrier 都进入就绪
         for (; pYYBarrier->lTotalThreads != (pYYBarrier->lRemainderThreads & 0x7FFFFFFF);)
         {
-            //等待16毫秒
-            Sleep(16);
+            //等待
+            YieldProcessor();
         }
 
         BOOL bSuccess = FALSE;
         if (auto hEnent = (HANDLE)(size_t(pYYBarrier->hEvent[0]) & ~size_t(0x1)))
-            CloseHandle(hEnent);
+            NtClose(hEnent);
 
         if (auto hEnent = (HANDLE)(size_t(pYYBarrier->hEvent[1]) & ~size_t(0x1)))
-            CloseHandle(hEnent);
+            NtClose(hEnent);
 
         //微软文档说的，这个函数总是返回 TRUE，但是微软Windows 8的实现略有问题，直接转发了 RtlDeleteBarrier，返回值并不正确
         return TRUE;
@@ -2738,28 +2878,26 @@ namespace YY::Thunks
     //Windows 8 [desktop apps | UWP apps]
     //Windows Server 2012 [desktop apps | UWP apps] 
     __DEFINE_THUNK(
-    api_ms_win_core_synch_l1_2_0,
+    ntdll,
     16,
-    BOOL,
-    WINAPI,
-    WaitOnAddress,
+    NTSTATUS,
+    NTAPI,
+    RtlWaitOnAddress,
         _In_reads_bytes_(AddressSize) volatile VOID* Address,
         _In_reads_bytes_(AddressSize) PVOID CompareAddress,
         _In_ SIZE_T AddressSize,
-        _In_opt_ DWORD dwMilliseconds
+        _In_opt_ PLARGE_INTEGER Timeout
         )
     {
-        if (auto const pWaitOnAddress = try_get_WaitOnAddress())
+        if (auto const pRtlWaitOnAddress = try_get_RtlWaitOnAddress())
         {
-            return pWaitOnAddress(Address, CompareAddress, AddressSize, dwMilliseconds);
+            return pRtlWaitOnAddress(Address, CompareAddress, AddressSize, Timeout);
         }
 
         //参数检查，AddressSize 只能 为 1,2,4,8
         if (AddressSize > 8 || AddressSize == 0 || ((AddressSize - 1) & AddressSize) != 0)
         {
-            //STATUS_INVALID_PARAMETER
-            SetLastError(ERROR_INVALID_PARAMETER);
-            return FALSE;
+            return STATUS_INVALID_PARAMETER;
         }
 
         YY_ADDRESS_WAIT_BLOCK WaitBlock;
@@ -2803,9 +2941,24 @@ namespace YY::Thunks
             return TRUE;
         }
 
+        return internal::RtlpWaitOnAddressWithTimeout(&WaitBlock, Timeout);
+    }
+
+    __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(
+    api_ms_win_core_synch_l1_2_0,
+    16,
+    BOOL,
+    WINAPI,
+    WaitOnAddress,
+        _In_reads_bytes_(AddressSize) volatile VOID* Address,
+        _In_reads_bytes_(AddressSize) PVOID CompareAddress,
+        _In_ SIZE_T AddressSize,
+        _In_opt_ DWORD dwMilliseconds
+        )
+    {
         LARGE_INTEGER TimeOut;
 
-        auto Status = internal::RtlpWaitOnAddressWithTimeout(&WaitBlock, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds));
+        auto Status = RtlWaitOnAddress(Address, CompareAddress, AddressSize, internal::BaseFormatTimeOut(&TimeOut, dwMilliseconds));
 
         if (Status)
         {
@@ -2822,17 +2975,17 @@ namespace YY::Thunks
     //Windows 8 [desktop apps | UWP apps]
     //Windows Server 2012 [desktop apps | UWP apps] 
     __DEFINE_THUNK(
-    api_ms_win_core_synch_l1_2_0,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    WakeByAddressSingle,
+    RtlWakeByAddressSingle,
         _In_ PVOID Address
         )
     {
-        if (auto const pWakeByAddressSingle = try_get_WakeByAddressSingle())
+        if (auto const pRtlWakeByAddressSingle = try_get_RtlWakeByAddressSingle())
         {
-            return pWakeByAddressSingle(Address);
+            return pRtlWakeByAddressSingle(Address);
         }
 
         internal::RtlpWakeByAddress(Address, FALSE);
@@ -2845,24 +2998,24 @@ namespace YY::Thunks
     //Windows 8 [desktop apps | UWP apps]
     //Windows Server 2012 [desktop apps | UWP apps] 
     __DEFINE_THUNK(
-    api_ms_win_core_synch_l1_2_0,
+    ntdll,
     4,
     VOID,
     WINAPI,
-    WakeByAddressAll,
+    RtlWakeAddressAll,
         _In_ PVOID Address
         )
     {
-        if (auto const pWakeByAddressAll = try_get_WakeByAddressAll())
+        if (auto const pRtlWakeAddressAll = try_get_RtlWakeAddressAll())
         {
-            return pWakeByAddressAll(Address);
+            return pRtlWakeAddressAll(Address);
         }
 
         internal::RtlpWakeByAddress(Address, TRUE);
     }
 #endif
 
-
+#ifndef __FOR_NTDLL
 #if (YY_Thunks_Target < __WindowsNT6_1)
 
     // Minimum supported client	Windows 7 [desktop apps | UWP apps]
@@ -2939,5 +3092,6 @@ namespace YY::Thunks
 
         return SetWaitableTimer(_hTimer, _lpDueTime, _iPeriod, _pfnCompletionRoutine, _lpArgToCompletionRoutine, _pWakeContext != nullptr);
     }
+#endif
 #endif
 } //namespace YY::Thunks

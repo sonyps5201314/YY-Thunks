@@ -46,8 +46,8 @@ namespace YY::Thunks::Fallback
             if (!_hThread)
                 continue;
 
-            QueueUserAPC(
-                [](ULONG_PTR _hHandle)
+            NtQueueApcThread(_hThread,
+                [](PVOID _hHandle, PVOID, PVOID)
                 {
     #ifndef __USING_NTDLL_LIB
                     const auto NtCancelIoFile = try_get_NtCancelIoFile();
@@ -56,8 +56,8 @@ namespace YY::Thunks::Fallback
                     // 故意不判断空指针，NtCancelIoFileEx开头已经判断过了。
                     // 如果真的崩溃，那么说明内存被改坏了。
                     NtCancelIoFile(reinterpret_cast<HANDLE>(_hHandle), &_IoStatus);
-                }, _hThread, (ULONG_PTR)_hHandle);
-            CloseHandle(_hThread);
+                }, _hHandle, nullptr, nullptr);
+            NtClose(_hThread);
         }
 
         return _Status;

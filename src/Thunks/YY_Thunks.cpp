@@ -162,6 +162,12 @@ YY-Thunks支持的控制宏：
 #define __USING_NTDLL_LIB 1
 #endif
 
+#ifdef __FOR_NTDLL
+#define _NTSYSTEM_
+#define _KERNEL32_
+#define _EVNT_SOURCE_
+#endif
+
 #define _Disallow_YY_KM_Namespace
 #include "km.h"
 #include <Shlwapi.h>
@@ -169,6 +175,12 @@ YY-Thunks支持的控制宏：
 #include <ws2tcpip.h>
 #include <psapi.h>
 #include <winnls.h>
+
+#ifdef __FOR_NTDLL
+#define HeapAlloc RtlAllocateHeap
+#define HeapReAlloc RtlReAllocateHeap
+#define HeapFree RtlFreeHeap
+#endif
 
 #include <type_traits>
 
@@ -253,14 +265,21 @@ RtlCutoverTimeToSystemTime(
 #define __DEFINE_THUNK_EXTERN_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                      \
     __APPLY_UNIT_TEST_BOOL(_FUNCTION);                                                                                     \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__);                                     \
+    __pragma(comment(linker, "/export:"#_FUNCTION"=_"#_FUNCTION"@"#_SIZE))                                                 \
     static decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept;      \
     __if_not_exists(_CRT_CONCATENATE(try_get_, _FUNCTION))
 
 #define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 
+#ifdef __FOR_NTDLL
+#include "Thunks\YY_Thunks_List-ntdll.hpp"
+#else
 #include "Thunks\YY_Thunks_List.hpp"
+#endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 
 namespace YY::Thunks::internal
 {
@@ -1437,11 +1456,22 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
     _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
+    _DEFINE_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                                                 \
+    _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
+    EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#include "YY_Thunks_List.hpp"
+#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+
+#ifdef __FOR_NTDLL
+#include "Thunks\YY_Thunks_List-ntdll.hpp"
+#else
+#include "Thunks\YY_Thunks_List.hpp"
+#endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 #undef YY_Thunks_Implemented
 
 static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_t* module_name, int Flags) noexcept
@@ -1479,6 +1509,22 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
     }
     else
     {
+#ifdef __FOR_NTDLL
+        if (Flags & LOAD_AS_DATA_FILE)
+        {
+            __fastfail(FAST_FAIL_INVALID_ARG);
+        }
+        else if (Flags & USING_UNSAFE_LOAD)
+        {
+            __fastfail(FAST_FAIL_INVALID_ARG);
+        }
+        else
+        {
+            auto _sModuleName = YY::Thunks::internal::MakeNtString(module_name);
+            LdrLoadDll(nullptr, nullptr, &_sModuleName, &new_handle);
+        }
+        goto __AFTER_LOAD_MODULE__;
+#endif
         // 我们不能直接使用 LoadLibraryExW，因为它可能被Thunk。
         __if_exists(YY::Thunks::try_get_LoadLibraryExW)
         {
@@ -1527,6 +1573,7 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
         }
     }
 
+    __AFTER_LOAD_MODULE__:
     if (!new_handle)
     {
         if (HMODULE const cached_handle = __crt_interlocked_exchange_pointer(pModule, INVALID_HANDLE_VALUE))
@@ -1607,6 +1654,13 @@ _Ret_notnull_ static YY_ThunksSharedData* __fastcall GetYY_ThunksSharedData() no
     YY::Thunks::internal::AutoResetLastError _AutoReset;
     wchar_t _szYY_ThunksSharedDataMapNameBuffer[MAX_PATH] = {};
     YY::Thunks::internal::StringBuffer<wchar_t> _szBuffer(_szYY_ThunksSharedDataMapNameBuffer, _countof(_szYY_ThunksSharedDataMapNameBuffer));
+    auto pPeb = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock;
+    if (pPeb->OSMajorVersion >= 6)
+    {
+        _szBuffer.AppendString(L"\\Sessions\\");
+        _szBuffer.AppendUint32(pPeb->SessionId);
+    }
+    _szBuffer.AppendString(L"\\BaseNamedObjects\\");
     _szBuffer.AppendString(L"YY_ThunksSharedData_53302349-F6BE-49C4-AC98-DA275C0CE653_");
 
     _szBuffer.AppendUint32(GetCurrentProcessId());
@@ -1622,16 +1676,30 @@ _Ret_notnull_ static YY_ThunksSharedData* __fastcall GetYY_ThunksSharedData() no
 #error "未知CPU架构"
 #endif
 
-    SYSTEM_INFO _SystemInfo;
-    GetSystemInfo(&_SystemInfo);
-    const auto _cbSharedData = max(_SystemInfo.dwPageSize * 2, 4096 * 2);
+    SYSTEM_BASIC_INFORMATION _SystemInfo;
+    _SystemInfo.PageSize = 0;
+    NTSTATUS status = NtQuerySystemInformation(SystemBasicInformation, &_SystemInfo, sizeof(_SystemInfo), 0);
+    SIZE_T _cbSharedData = max(_SystemInfo.PageSize * 2, 4096 * 2);
 
     YY_ThunksSharedData* _pData = nullptr;
 
-    auto _hSharedData = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, _cbSharedData, _szYY_ThunksSharedDataMapNameBuffer);
+    UNICODE_STRING usObjectName;
+    RtlInitUnicodeString(&usObjectName, _szBuffer.GetC_String());
+
+    OBJECT_ATTRIBUTES oa;
+    InitializeObjectAttributes(&oa, &usObjectName, OBJ_OPENIF, nullptr, nullptr);
+
+    LARGE_INTEGER liMaximumSize;
+    liMaximumSize.QuadPart = _cbSharedData;
+
+    HANDLE _hSharedData = nullptr;
+    status = NtCreateSection(&_hSharedData, STANDARD_RIGHTS_REQUIRED | SECTION_QUERY | SECTION_MAP_READ | SECTION_MAP_READ | SECTION_MAP_WRITE,
+        &oa, &liMaximumSize, PAGE_READWRITE, SEC_COMMIT, nullptr);
     if (_hSharedData)
     {
-        _pData = (YY_ThunksSharedData*)MapViewOfFile(_hSharedData, FILE_MAP_WRITE, 0, 0, _cbSharedData);
+        LARGE_INTEGER SectionOffset;
+        SectionOffset.QuadPart = 0;
+        status = NtMapViewOfSection(_hSharedData, NtCurrentProcess(), (PVOID*)&_pData, 0L, 0L, &SectionOffset, &_cbSharedData, ViewShare, 0L, PAGE_READWRITE);
 
         // 首次创建时不关闭 FileMapping，这是为了保证进程生命周期内其中的数据不被销毁，意外导致数据丢失
         if (_pData == nullptr || InterlockedBitTestAndSet(&_pData->fYY_ThunksInitFlags, 0))
@@ -1642,7 +1710,7 @@ _Ret_notnull_ static YY_ThunksSharedData* __fastcall GetYY_ThunksSharedData() no
             {
                 const auto CloseHandle = YY::Thunks::try_get_CloseHandle();
             }
-            CloseHandle(_hSharedData);
+            NtClose(_hSharedData);
         }
     }
 
@@ -1656,7 +1724,7 @@ _Ret_notnull_ static YY_ThunksSharedData* __fastcall GetYY_ThunksSharedData() no
     {
         if (_pData != &s_DefaultSharedData)
         {
-            UnmapViewOfFile(_pData);
+            NtUnmapViewOfSection(NtCurrentProcess(), _pData);
         }
 
         return _pLastSharedData;
@@ -1691,6 +1759,10 @@ static void __fastcall FreeYY_ThunksSharedData(YY_ThunksSharedData* _pSharedData
 
 #if (YY_Thunks_Target < __WindowsNT6)
     if (_pSharedData->hGlobalKeyedEventHandle)
-        CloseHandle(_pSharedData->hGlobalKeyedEventHandle);
+        NtClose(_pSharedData->hGlobalKeyedEventHandle);
 #endif
 }
+
+#ifdef __FOR_NTDLL
+#include "ntdllWrapper.cpp"
+#endif

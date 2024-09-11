@@ -1,0 +1,6 @@
+﻿#include "..\Thunks\api-ms-win-core-rtlsupport.hpp"
+#include "..\Thunks\api-ms-win-core-synch.hpp"
+#include "..\Thunks\api-ms-win-core-util.hpp"
+#include "..\Thunks\api-ms-win-eventing-provider.hpp"
+#include "..\Thunks\DllMainCRTStartup.hpp"
+#include "..\Thunks\ntdll.hpp"

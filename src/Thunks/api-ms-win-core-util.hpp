@@ -6,17 +6,17 @@ namespace YY::Thunks
 
     //Windows XP with SP2, Windows Server 2003 with SP1
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     PVOID,
     WINAPI,
-    DecodePointer,
+    RtlDecodePointer,
         _In_opt_ PVOID Ptr
         )
     {
-        if (auto const pDecodePointer = try_get_DecodePointer())
+        if (auto const pRtlDecodePointer = try_get_RtlDecodePointer())
         {
-            return pDecodePointer(Ptr);
+            return pRtlDecodePointer(Ptr);
         }
         else
         {
@@ -30,17 +30,17 @@ namespace YY::Thunks
 
     //Windows XP with SP2, Windows Server 2003 with SP1
     __DEFINE_THUNK(
-    kernel32,
+    ntdll,
     4,
     PVOID,
     WINAPI,
-    EncodePointer,
+        RtlEncodePointer,
         _In_opt_ PVOID Ptr
         )
     {
-        if (auto const pEncodePointer = try_get_EncodePointer())
+        if (auto const pRtlEncodePointer = try_get_RtlEncodePointer())
         {
-            return pEncodePointer(Ptr);
+            return pRtlEncodePointer(Ptr);
         }
         else
         {
