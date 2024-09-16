@@ -85,6 +85,7 @@
     <IncludePath>$(SolutionDir)Thunks;$(SolutionDir);$(SolutionDir)Shared;$(IncludePath)</IncludePath>
     <NMakeBuildCommandLine>cd ..
 Build BuildX86</NMakeBuildCommandLine>
+    <NMakePreprocessorDefinitions>YY_Thunks_Target=__WindowsNT5_2</NMakePreprocessorDefinitions>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
