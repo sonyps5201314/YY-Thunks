@@ -466,7 +466,18 @@ static void* __fastcall try_get_function(
     // If we haven't yet cached the function pointer, try to import it from any
     // of the modules in which it might be defined.  If this fails, cache the
     // sentinel pointer so that we don't attempt to load this function again:
-    void* const new_fp = try_get_proc_address_from_first_available_module(_ProcInfo);
+    void* new_fp = try_get_proc_address_from_first_available_module(_ProcInfo);
+    if (new_fp)
+    {
+        PIMAGE_DOS_HEADER pImageBase = &__ImageBase;
+        PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS)((PBYTE)pImageBase + pImageBase->e_lfanew);
+
+        if ((ULONG_PTR)new_fp >= (ULONG_PTR)pImageBase &&
+            (ULONG_PTR)new_fp < (ULONG_PTR)pImageBase + pNtHeaders->OptionalHeader.SizeOfImage)
+        {
+            new_fp = nullptr;
+        }
+    }
     if (!new_fp)
     {
         void* const cached_fp = __crt_fast_decode_pointer(

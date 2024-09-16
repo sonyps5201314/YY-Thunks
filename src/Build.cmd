@@ -26,7 +26,7 @@ goto:eof
 :BuildObj
 echo BuildObj %1 %2 %3
 
-cl /O1 /Os /Oi /GS- /std:c++17 /execution-charset:utf-8 /guard:ehcont /Zc:sizedDealloc- /Zc:tlsGuards- /Zc:alignedNew- /arch:IA32 /Z7 /MT /Fo"objs\\%Platform%\\%1" /Zl /c /D__USING_NTDLL_LIB /D __FOR_NTDLL /D "NDEBUG" /D "YY_Thunks_Target=%2" "%~dp0Thunks\YY_Thunks.cpp"
+cl /O1 /Os /Oi /GS- /std:c++17 /execution-charset:utf-8 /guard:ehcont /Zc:sizedDealloc- /Zc:tlsGuards- /Zc:alignedNew- /arch:IA32 /Z7 /MT /Fo"objs\\%Platform%\\%1" /Zl /c /D__USING_NTDLL_LIB /D "NDEBUG" /D "YY_Thunks_Target=%2" "%~dp0Thunks\YY_Thunks.cpp"
 if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
 
 ::生成weak符号，一些非必须符号安排为weak可以避免链接失败
@@ -75,7 +75,7 @@ set PointType=4
 ::call:BuildX 5.1.2600.0 YY_Thunks_for_WinXP.obj __WindowsNT5_1 PSAPI2Kernel32.def+esent.def
 ::if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
 
-call:BuildX 5.2.3790.0 YY_Thunks_for_Win2K3.obj __WindowsNT5_2
+call:BuildX 5.2.3790.0 YY_Thunks_for_Win2K3.obj __WindowsNT5_2  PSAPI2Kernel32.def+esent.def+Kernel32.def
 if %ErrorLevel% NEQ 0 exit /b %ErrorLevel%
 
 ::call:BuildX 6.0.6000.0 YY_Thunks_for_Vista.obj __WindowsNT6 PSAPI2Kernel32.def
