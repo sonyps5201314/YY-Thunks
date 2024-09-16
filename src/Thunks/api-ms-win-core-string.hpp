@@ -270,11 +270,12 @@ namespace YY::Thunks
     // Minimum supported client	Windows 2000 Professional [desktop apps only]
     // Minimum supported server	Windows 2000 Server [desktop apps only]
     // 虽然Windows 2000已经支持，但是几个新标记老系统不支持，特殊处理一下。
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     24,
     int,
     WINAPI,
+    K32_,
     CompareStringA,
         _In_ LCID     Locale,
         _In_ DWORD    dwCmpFlags,
@@ -318,11 +319,12 @@ namespace YY::Thunks
     // Minimum supported client	Windows 2000 Professional [desktop apps only]
     // Minimum supported server	Windows 2000 Server [desktop apps only]
     // 虽然Windows 2000已经支持，但是几个新标记老系统不支持，特殊处理一下。
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     24,
     int,
     WINAPI,
+    K32_,
     CompareStringW,
         _In_ LCID Locale,
         _In_ DWORD dwCmpFlags,

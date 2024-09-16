@@ -270,6 +270,7 @@ RtlCutoverTimeToSystemTime(
     __if_not_exists(_CRT_CONCATENATE(try_get_, _FUNCTION))
 
 #define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITH_ALTER_API_PREFIX(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _ALTER_API_PREFIX, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 #define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_EXTERN_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
 
 #ifdef __FOR_NTDLL
@@ -279,6 +280,7 @@ RtlCutoverTimeToSystemTime(
 #endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITH_ALTER_API_PREFIX
 #undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 
 namespace YY::Thunks::internal
@@ -1430,7 +1432,7 @@ namespace YY::Thunks::internal
 
 //导入实际的实现
 #define YY_Thunks_Implemented
-#define __DEFINE_THUNK_IMP_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
+#define __DEFINE_THUNK_IMP_PREFIX(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _ALTER_API_PREFIX, _FUNCTION, ...)                 \
     static decltype(_CRT_CONCATENATE_(_PREFIX, _FUNCTION))* __cdecl _CRT_CONCATENATE(try_get_, _FUNCTION)() noexcept       \
     {                                                                                          \
         __CHECK_UNIT_TEST_BOOL(_FUNCTION);                                                     \
@@ -1441,7 +1443,7 @@ namespace YY::Thunks::internal
         __declspec(allocate(".YYThu$AAB")) static void* _CRT_CONCATENATE(pFun_, _FUNCTION);    \
         static const ProcInfo _ProcInfo =                                                      \
         {                                                                                      \
-            _CRT_STRINGIZE(_FUNCTION),                                                         \
+            _CRT_STRINGIZE(_CRT_CONCATENATE(_ALTER_API_PREFIX, _FUNCTION)),                    \
             &_CRT_CONCATENATE(try_get_module_, _MODULE),                                       \
 __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))                       \
 {                                                                                              \
@@ -1456,13 +1458,14 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
     _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#define __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...)                 \
+#define __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _ALTER_API_PREFIX, _FUNCTION, ...)                 \
     _DEFINE_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                                                 \
     _YY_THUNKS_DEFINE_RUST_RAW_DYLIB_IAT_SYMBOL_PREFIX(_PREFIX, _FUNCTION, _SIZE);                             \
     EXTERN_C _RETURN_ _CONVENTION_ _CRT_CONCATENATE_(_PREFIX, _FUNCTION)(__VA_ARGS__)
 
-#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
-#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, , _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITH_ALTER_API_PREFIX(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _ALTER_API_PREFIX, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, _ALTER_API_PREFIX, _FUNCTION, __VA_ARGS__)
+#define __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION(_MODULE, _SIZE, _RETURN_, _CONVENTION_, _FUNCTION, ...) __DEFINE_THUNK_IMP_PREFIX__WITHOUT_LOAD_FUNCTION(__FALLBACK_PREFIX, _MODULE, _SIZE, _RETURN_, _CONVENTION_, , _FUNCTION, __VA_ARGS__)
 
 #ifdef __FOR_NTDLL
 #include "Thunks\YY_Thunks_List-ntdll.hpp"
@@ -1471,6 +1474,7 @@ __if_exists(YY::Thunks::Fallback::_CRT_CONCATENATE(try_get_, _FUNCTION))        
 #endif
 
 #undef __DEFINE_THUNK
+#undef __DEFINE_THUNK__WITH_ALTER_API_PREFIX
 #undef __DEFINE_THUNK__WITHOUT_LOAD_FUNCTION
 #undef YY_Thunks_Implemented
 

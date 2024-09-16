@@ -1268,11 +1268,12 @@ namespace YY::Thunks
 
     // 最低受支持的客户端	Windows XP [桌面应用 |UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     24,
     HANDLE,
     WINAPI,
+    K32_,
     FindFirstFileExW,
         _In_ LPCWSTR lpFileName,
         _In_ FINDEX_INFO_LEVELS fInfoLevelId,
@@ -1305,11 +1306,12 @@ namespace YY::Thunks
 
     // 最低受支持的客户端	Windows XP [桌面应用 |UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     24,
     HANDLE,
     WINAPI,
+    K32_,
     FindFirstFileExA,
         _In_ LPCSTR lpFileName,
         _In_ FINDEX_INFO_LEVELS fInfoLevelId,
