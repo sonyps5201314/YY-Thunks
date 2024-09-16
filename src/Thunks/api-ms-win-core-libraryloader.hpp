@@ -363,12 +363,13 @@ namespace YY::Thunks
 #if (YY_Thunks_Target < __WindowsNT6_2)
 
     //虽然这个早就有了，但是只有Windows 8以及打了KB2533623补丁的系统才支持 LOAD_LIBRARY_SEARCH_SYSTEM32 等特性
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     12,
     _Ret_maybenull_
     HMODULE,
     WINAPI,
+    K32_,
     LoadLibraryExW,
         _In_ LPCWSTR _szLibFileName,
         _Reserved_ HANDLE _hFile,
@@ -1047,12 +1048,13 @@ namespace YY::Thunks
 #if (YY_Thunks_Target < __WindowsNT6_2)
 
     //虽然这个早就有了，但是只有Windows 8以及打了KB2533623补丁的系统才支持 LOAD_LIBRARY_SEARCH_SYSTEM32 等特性
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     12,
     _Ret_maybenull_
     HMODULE,
     WINAPI,
+    K32_,
     LoadLibraryExA,
         _In_ LPCSTR _szLibFileName,
         _Reserved_ HANDLE _hFile,
@@ -1254,11 +1256,12 @@ namespace YY::Thunks
 
     // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     4,
     BOOL,
     WINAPI,
+    K32_,
     DisableThreadLibraryCalls,
         _In_ HMODULE _hLibModule
         )
@@ -1323,11 +1326,12 @@ namespace YY::Thunks
 #if (YY_Thunks_Target < __WindowsNT6_2)
 
     // 所有系统都支持，但是现在为了支持 SetDefaultDllDirectories就Thunk下
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     4,
     HMODULE,
     WINAPI,
+    K32_,
     LoadLibraryW,
         _In_ LPCWSTR _szLibFileName
         )
@@ -1358,11 +1362,12 @@ namespace YY::Thunks
 #if (YY_Thunks_Target < __WindowsNT6_2)
 
     // 所有系统都支持，但是现在为了支持 SetDefaultDllDirectories
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     4,
     HMODULE,
     WINAPI,
+    K32_,
     LoadLibraryA,
         _In_ LPCSTR _szLibFileName
         )
