@@ -751,11 +751,12 @@ namespace YY::Thunks
     // 最低受支持的客户端	Windows 2000 Professional [仅限桌面应用]
     // 最低受支持的服务器	Windows 2000 Server[仅限桌面应用]
     // 虽然2000就支持，但是为了实现CompareObjectHandles，目前需要处理一下关闭。
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     advapi32,
     4,
     LSTATUS,
     APIENTRY,
+    K32_,
     RegCloseKey,
         _In_ HKEY _hKey
         )
