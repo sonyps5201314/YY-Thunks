@@ -447,12 +447,14 @@ namespace YY::Thunks
             }		
 
 
+            /*
             if (LOAD_LIBRARY_SEARCH_USER_DIRS & dwLoadLibrarySearchFlags)
             {
                 //LOAD_LIBRARY_SEARCH_USER_DIRS 无法顺利实现，索性无效参数处理
                 SetLastError(ERROR_INVALID_PARAMETER);
                 return nullptr;
             }
+            */
 
 
 
