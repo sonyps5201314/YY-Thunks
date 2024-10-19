@@ -109,11 +109,12 @@
 
     // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     advapi32,
     20,
     BOOL,
     WINAPI,
+    K32_,
     GetTokenInformation,
         _In_ HANDLE _hTokenHandle,
         _In_ TOKEN_INFORMATION_CLASS _eTokenInformationClass,
