@@ -1217,11 +1217,12 @@ namespace YY ::Thunks
     // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
     // Windows XP无法支持 PROCESS_QUERY_LIMITED_INFORMATION等权限。
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     12,
     HANDLE,
     WINAPI,
+    K32_,
     OpenProcess,
         _In_ DWORD _fDesiredAccess,
         _In_ BOOL _bInheritHandle,
@@ -1262,11 +1263,12 @@ namespace YY ::Thunks
     // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
     // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
     // Windows XP无法支持 PROCESS_QUERY_LIMITED_INFORMATION等权限。
-    __DEFINE_THUNK(
+    __DEFINE_THUNK__WITH_ALTER_API_PREFIX(
     kernel32,
     12,
     HANDLE,
     WINAPI,
+    K32_,
     OpenThread,
         _In_ DWORD _fDesiredAccess,
         _In_ BOOL _bInheritHandle,
