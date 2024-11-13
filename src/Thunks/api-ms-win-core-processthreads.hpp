@@ -1,4 +1,4 @@
-﻿#if (YY_Thunks_Target < __WindowsNT6_2)
+﻿#if (YY_Thunks_Target < __WindowsNT10_15063)
 #include <processthreadsapi.h>
 #endif
 
@@ -1208,6 +1208,155 @@ namespace YY ::Thunks
         }
 
         return CreateRemoteThread(_hProcess, _pThreadAttributes, _uStackSize, _pStartAddress, _pParameter, _fCreationFlags, _pThreadId);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6)
+
+    // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
+    // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
+    // Windows XP无法支持 PROCESS_QUERY_LIMITED_INFORMATION等权限。
+    __DEFINE_THUNK(
+    kernel32,
+    12,
+    HANDLE,
+    WINAPI,
+    OpenProcess,
+        _In_ DWORD _fDesiredAccess,
+        _In_ BOOL _bInheritHandle,
+        _In_ DWORD _uProcessId
+        )
+    {
+        const auto _pfnOpenProcess = try_get_OpenProcess();
+        if (!_pfnOpenProcess)
+        {
+            SetLastError(ERROR_FUNCTION_FAILED);
+            return nullptr;
+        }
+
+        if (internal::GetSystemVersion() < internal::MakeVersion(6, 0))
+        {
+            if (PROCESS_QUERY_LIMITED_INFORMATION & _fDesiredAccess)
+            {
+                _fDesiredAccess |= PROCESS_QUERY_INFORMATION;
+            }
+
+            if (PROCESS_SET_LIMITED_INFORMATION & _fDesiredAccess)
+            {
+                _fDesiredAccess |= PROCESS_SET_INFORMATION;
+            }
+
+            // Vista以上最高为    0xFFFF
+            // Windows XP最高只有 0x0FFF
+            _fDesiredAccess &= ~(0xFFFFu ^ 0x0FFF);
+        }
+
+        return _pfnOpenProcess(_fDesiredAccess, _bInheritHandle, _uProcessId);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6)
+
+    // 最低受支持的客户端	Windows XP [桌面应用 | UWP 应用]
+    // 最低受支持的服务器	Windows Server 2003[桌面应用 | UWP 应用]
+    // Windows XP无法支持 PROCESS_QUERY_LIMITED_INFORMATION等权限。
+    __DEFINE_THUNK(
+    kernel32,
+    12,
+    HANDLE,
+    WINAPI,
+    OpenThread,
+        _In_ DWORD _fDesiredAccess,
+        _In_ BOOL _bInheritHandle,
+        _In_ DWORD _uThreadId
+        )
+    {
+        const auto _pfnOpenThread = try_get_OpenThread();
+        if (!_pfnOpenThread)
+        {
+            SetLastError(ERROR_FUNCTION_FAILED);
+            return nullptr;
+        }
+
+        if (internal::GetSystemVersion() < internal::MakeVersion(6, 0))
+        {
+            if (THREAD_QUERY_LIMITED_INFORMATION & _fDesiredAccess)
+            {
+                _fDesiredAccess |= THREAD_QUERY_INFORMATION;
+            }
+
+            if (THREAD_SET_LIMITED_INFORMATION & _fDesiredAccess)
+            {
+                _fDesiredAccess |= THREAD_SET_INFORMATION;
+            }
+
+            // Vista以上最高为    0xFFFF
+            // Windows XP最高只有 0x03FF
+            _fDesiredAccess &= ~(0xFFFFu ^ 0x03FFu);
+        }
+
+        return _pfnOpenThread(_fDesiredAccess, _bInheritHandle, _uThreadId);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT10_15063)
+
+    // 最低受支持的客户端	Windows 10版本 1607 [桌面应用 |UWP 应用]
+    // 最低受支持的服务器	Windows Server 2016[桌面应用 | UWP 应用]
+    // 虽然14393就有这个接口，但是14393必须从 kernelbase加载，因此也需要修正。
+    __DEFINE_THUNK(
+    kernelbase,
+    8,
+    HRESULT,
+    WINAPI,
+    GetThreadDescription,
+        _In_ HANDLE _hThread,
+        _Outptr_result_z_ PWSTR* _pszThreadDescription
+        )
+    {
+        if (const auto _pfnGetThreadDescription = try_get_GetThreadDescription())
+        {
+            return _pfnGetThreadDescription(_hThread, _pszThreadDescription);
+        }
+
+        // 假装自己是一个空的 ThreadDescription
+
+        *_pszThreadDescription = nullptr;
+        auto _szThreadDescription = (wchar_t*)LocalAlloc(LMEM_FIXED, sizeof(wchar_t));
+        if (!_szThreadDescription)
+            return E_OUTOFMEMORY;
+
+        *_szThreadDescription = L'\0';
+        *_pszThreadDescription = _szThreadDescription;
+        return 0x10000000;
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT10_15063)
+
+    // 最低受支持的客户端	Windows 10版本 1607 [桌面应用 |UWP 应用]
+    // 最低受支持的服务器	Windows Server 2016[桌面应用 | UWP 应用]
+    // 虽然14393就有这个接口，但是14393必须从 kernelbase加载，因此也需要修正。
+    __DEFINE_THUNK(
+    kernelbase,
+    8,
+    HRESULT,
+    WINAPI,
+    SetThreadDescription,
+        _In_ HANDLE _hThread,
+        _In_ PCWSTR _szThreadDescription
+        )
+    {
+        if (const auto _pfnSetThreadDescription = try_get_SetThreadDescription())
+        {
+            return _pfnSetThreadDescription(_hThread, _szThreadDescription);
+        }
+
+        return E_NOTIMPL;
     }
 #endif
 } //namespace YY::Thunks

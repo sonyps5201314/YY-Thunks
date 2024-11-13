@@ -1,9 +1,20 @@
-﻿#include <winsock2.h>
+﻿#if (YY_Thunks_Target < __WindowsNT6_2)
+#include <winsock2.h>
 #include <ws2tcpip.h>
 
 #ifdef FreeAddrInfoEx
 #undef FreeAddrInfoEx
 #endif // ! FreeAddrInfoEx
+#endif
+
+#if (YY_Thunks_Target < __WindowsNT6)
+#include <Mswsock.h>
+#endif
+
+#if (YY_Thunks_Target < __WindowsNT6_1_SP1) && !defined(__Comment_Lib_ws2_32)
+#define __Comment_Lib_ws2_32
+#pragma comment(lib, "Ws2_32.lib")
+#endif
 
 namespace YY::Thunks
 {
@@ -1460,6 +1471,138 @@ namespace YY::Thunks
         }
     
         return result;
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6)
+
+    // Windows XP就支持
+    // 但是 Windows XP不支持 SIO_BASE_HANDLE
+    __DEFINE_THUNK(
+    ws2_32,
+    36,
+    int,
+    WSAAPI,
+    WSAIoctl,
+        _In_ SOCKET s,
+        _In_ DWORD dwIoControlCode,
+        _In_reads_bytes_opt_(cbInBuffer) LPVOID lpvInBuffer,
+        _In_ DWORD cbInBuffer,
+        _Out_writes_bytes_to_opt_(cbOutBuffer, *lpcbBytesReturned) LPVOID lpvOutBuffer,
+        _In_ DWORD cbOutBuffer,
+        _Out_ LPDWORD lpcbBytesReturned,
+        _Inout_opt_ LPWSAOVERLAPPED lpOverlapped,
+        _In_opt_ LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine
+        )
+    {
+        // Upon successful completion, the WSAIoctl returns zero. Otherwise, a value of SOCKET_ERROR is returned,
+        // and a specific error code can be retrieved by calling WSAGetLastError.
+        auto const _pfnWSAIoctl = try_get_WSAIoctl();
+        if (!_pfnWSAIoctl)
+        {
+            WSASetLastError(WSAVERNOTSUPPORTED);
+            return SOCKET_ERROR;
+        }
+
+        if (dwIoControlCode == SIO_BASE_HANDLE && internal::GetSystemVersion() < internal::MakeVersion(6, 0))
+        {
+            // So while we do have layered service providers in Windows XP or earlier, this specific io control is not supported. 
+            // Worse, LSP is actually deprecated since Windows Server 2012, meaning this io control should likely return the socket
+            // input on later OS as well (effectively bypassed the LSPs)
+            // So almost nobody except mio's library uses this io control...god help... 
+
+            if (lpvOutBuffer == nullptr || lpcbBytesReturned == nullptr)
+            {
+                // https://learn.microsoft.com/zh-cn/windows/win32/winsock/winsock-ioctls#sio_bsp_handle-opcode-setting-o-t1
+                // If the output buffer is not large enough for a socket handle (the cbOutBuffer is less than the size of a SOCKET) or the lpvOutBuffer
+                // parameter is a NULL pointer, SOCKET_ERROR is returned as the result of this IOCTL and WSAGetLastError returns WSAEFAULT.
+                WSASetLastError(WSAEFAULT);
+                return SOCKET_ERROR;
+            }
+
+            *(SOCKET*)lpvOutBuffer = s;
+            *lpcbBytesReturned = sizeof(SOCKET);
+            return 0;
+        }
+
+        return _pfnWSAIoctl(s, dwIoControlCode, lpvInBuffer, cbInBuffer, lpvOutBuffer, cbOutBuffer, lpcbBytesReturned, lpOverlapped, lpCompletionRoutine);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6_1_SP1)
+
+    // Windows XP
+    // 虽然Windows XP支持这个API，但是Windows 7 SP1开始才支持 WSA_FLAG_NO_HANDLE_INHERIT 标记
+    __DEFINE_THUNK(
+    ws2_32,
+    24,
+    SOCKET,
+    WSAAPI,
+    WSASocketW,
+        _In_ int af,
+        _In_ int type,
+        _In_ int protocol,
+        _In_opt_ LPWSAPROTOCOL_INFOW lpProtocolInfo,
+        _In_ GROUP g,
+        _In_ DWORD dwFlags
+        )
+    {
+        auto const _pfnWSASocketW = try_get_WSASocketW();
+        if (!_pfnWSASocketW)
+        {
+            WSASetLastError(WSAVERNOTSUPPORTED);
+            return INVALID_SOCKET;
+        }
+
+        // This include Windows 7 non-SP1
+        if (internal::GetSystemVersion() < __WindowsNT6_1_SP1)
+        {
+            // This flag is supported on Windows 7 with SP1, Windows Server 2008 R2 with SP1, and later
+            // So we strip it to prevent error on prior OS, because process handle inheritance doesn't really matter at that point
+            dwFlags &= ~WSA_FLAG_NO_HANDLE_INHERIT;
+        }
+
+        return _pfnWSASocketW(af, type, protocol, lpProtocolInfo, g, dwFlags);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6_1_SP1)
+
+    // 最低 Windows XP
+    // 虽然Windows XP支持这个API，但是Windows 7 SP1开始才支持 WSA_FLAG_NO_HANDLE_INHERIT 标记
+    __DEFINE_THUNK(
+    ws2_32,
+    24,
+    SOCKET,
+    WSAAPI,
+    WSASocketA,
+        _In_ int af,
+        _In_ int type,
+        _In_ int protocol,
+        _In_opt_ LPWSAPROTOCOL_INFOA lpProtocolInfo,
+        _In_ GROUP g,
+        _In_ DWORD dwFlags
+        )
+    {
+        auto const _pfnWSASocketA = try_get_WSASocketA();
+        if (!_pfnWSASocketA)
+        {
+            WSASetLastError(WSAVERNOTSUPPORTED);
+            return INVALID_SOCKET;
+        }
+
+        // This include Windows 7 non-SP1
+        if (internal::GetSystemVersion() < __WindowsNT6_1_SP1)
+        {
+            // This flag is supported on Windows 7 with SP1, Windows Server 2008 R2 with SP1, and later
+            // So we strip it to prevent error on prior OS, because process handle inheritance doesn't really matter at that point
+            dwFlags &= ~WSA_FLAG_NO_HANDLE_INHERIT;
+        }
+
+        return _pfnWSASocketA(af, type, protocol, lpProtocolInfo, g, dwFlags);
     }
 #endif
 

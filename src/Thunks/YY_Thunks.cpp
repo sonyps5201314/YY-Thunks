@@ -27,6 +27,7 @@ YY-Thunks支持的控制宏：
 #define _YY_APPLY_TO_LATE_BOUND_MODULES(_APPLY)                                                                     \
     _APPLY(ntdll,                                        "ntdll"                              , USING_GET_MODULE_HANDLE ) \
     _APPLY(kernel32,                                     "kernel32"                           , USING_GET_MODULE_HANDLE ) \
+    _APPLY(kernelbase,                                   "kernelbase"                         , USING_GET_MODULE_HANDLE ) \
     _APPLY(cfgmgr32,                                     "cfgmgr32"                           , 0                 ) \
     _APPLY(crypt32,                                      "crypt32"                            , 0                 ) \
     _APPLY(dwmapi,                                       "dwmapi"                             , 0                 ) \
@@ -292,23 +293,27 @@ namespace YY::Thunks::internal
 #endif
         }
 
-        __forceinline constexpr DWORD __fastcall MakeVersion(_In_ DWORD _uMajorVersion, _In_ DWORD _uMinorVersion)
+        __forceinline constexpr uint64_t __fastcall MakeVersion(_In_ uint16_t _uMajor, _In_ uint16_t _uMinor, uint16_t _uBuild = 0, UINT16 _uRevision = 0)
         {
-            return (_uMajorVersion << 16) | _uMinorVersion;
+            uint64_t _uVersion = uint64_t(_uMajor) << 48;
+            _uVersion |= uint64_t(_uMinor) << 32;
+            _uVersion |= uint64_t(_uBuild) << 16;
+            _uVersion |= _uRevision;
+            return _uVersion;
         }
 
 #ifdef __YY_Thunks_Unit_Test     
-        EXTERN_C DWORD g_uSystemVersion = 0;
+        EXTERN_C uint64_t g_uSystemVersion = 0;
 #endif
 
-        __forceinline DWORD __fastcall GetSystemVersion()
+        __forceinline uint64_t __fastcall GetSystemVersion()
         {
 #ifdef __YY_Thunks_Unit_Test
             if (g_uSystemVersion)
                 return g_uSystemVersion;
 #endif
             const auto _pPeb = ((TEB*)NtCurrentTeb())->ProcessEnvironmentBlock;
-            return internal::MakeVersion(_pPeb->OSMajorVersion, _pPeb->OSMinorVersion);
+            return internal::MakeVersion(_pPeb->OSMajorVersion, _pPeb->OSMinorVersion, _pPeb->OSBuildNumber);
         }
 
         const SYSTEM_INFO& GetNativeSystemInfo()
@@ -1155,7 +1160,19 @@ static HMODULE __fastcall try_get_module(volatile HMODULE* pModule, const wchar_
     // this fails, cache the sentinel handle value INVALID_HANDLE_VALUE so that
     // we don't attempt to load the module again:
     HMODULE new_handle = NULL;
-    if (Flags & USING_GET_MODULE_HANDLE)
+
+    if (__pfnYY_Thunks_CustomLoadLibrary)
+    {
+        new_handle = __pfnYY_Thunks_CustomLoadLibrary(module_name, Flags);
+    }
+
+    if (new_handle)
+    {
+        // 使用 CustomLoadLibrary的结果
+        if (new_handle == INVALID_HANDLE_VALUE)
+            new_handle = nullptr;
+    }
+    else if (Flags & USING_GET_MODULE_HANDLE)
     {
         new_handle = GetModuleHandleW(module_name);
     }
