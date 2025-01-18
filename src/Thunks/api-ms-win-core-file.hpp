@@ -1155,11 +1155,11 @@ namespace YY::Thunks
 
             SecurityQualityOfService.Length = sizeof(SecurityQualityOfService);
 
-            if (FILE_FLAG_OPEN_NO_RECALL & dwFlagsAndAttributes)
+            if (SECURITY_SQOS_PRESENT & dwFlagsAndAttributes)
             {
                 SecurityQualityOfService.ImpersonationLevel = SECURITY_IMPERSONATION_LEVEL((dwFlagsAndAttributes >> 16) & 0x3);
 
-                if (FILE_FLAG_OPEN_REQUIRING_OPLOCK & dwFlagsAndAttributes)
+                if (SECURITY_CONTEXT_TRACKING & dwFlagsAndAttributes)
                 {
                     SecurityQualityOfService.ContextTrackingMode = TRUE;
                 }
@@ -1169,7 +1169,7 @@ namespace YY::Thunks
                 }
 
 
-                if (FILE_FLAG_FIRST_PIPE_INSTANCE & dwFlagsAndAttributes)
+                if (SECURITY_EFFECTIVE_ONLY & dwFlagsAndAttributes)
                 {
                     SecurityQualityOfService.EffectiveOnly = TRUE;
                 }
@@ -1229,10 +1229,9 @@ namespace YY::Thunks
 #endif
 
 
-#if (YY_Thunks_Target < __WindowsNT5_1)
+#if (YY_Thunks_Target < __WindowsNT5)
 
-    //Windows XP [desktop apps | UWP apps]
-    //Windows Server 2003 [desktop apps | UWP apps]
+    // 虽然MSDN文档说此API XP才又，但是实际上Windows 2000 RTM就有了。
     __DEFINE_THUNK(
     kernel32,
     20,
