@@ -28,4 +28,52 @@ namespace YY::Thunks
         return SetTimer(_hWnd, _nIDEvent, _uElapse, _lpTimerFunc);
     }
 #endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6)
+
+    // 最低受支持的客户端	Windows Vista [仅限桌面应用]
+    // 最低受支持的服务器	Windows Server 2008[仅限桌面应用]
+    __DEFINE_THUNK(
+    user32,
+    8,
+    BOOL,
+    WINAPI,
+    PhysicalToLogicalPoint,
+        _In_ HWND _hWnd,
+        _Inout_ LPPOINT _pPoint
+        )
+    {
+        if (auto const _pfnPhysicalToLogicalPoint = try_get_PhysicalToLogicalPoint())
+        {
+            return _pfnPhysicalToLogicalPoint(_hWnd, _pPoint);
+        }
+
+        return TRUE;
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6)
+
+    // 最低受支持的客户端	Windows Vista [仅限桌面应用]
+    // 最低受支持的服务器	Windows Server 2008[仅限桌面应用]
+    __DEFINE_THUNK(
+    user32,
+    8,
+    BOOL,
+    WINAPI,
+    LogicalToPhysicalPoint,
+        _In_ HWND _hWnd,
+        _Inout_ LPPOINT _pPoint
+        )
+    {
+        if (auto const _pfnLogicalToPhysicalPoint = try_get_LogicalToPhysicalPoint())
+        {
+            return _pfnLogicalToPhysicalPoint(_hWnd, _pPoint);
+        }
+
+        return TRUE;
+    }
+#endif
 }
