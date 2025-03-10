@@ -227,24 +227,113 @@ namespace YY::Thunks
     UINT,
     WINAPI,
     GetDpiForWindow,
-        _In_ HWND hwnd
+        _In_ HWND _hWnd
         )
     {
-        if (auto const pGetDpiForWindow = try_get_GetDpiForWindow())
+        if (auto const _pfnGetDpiForWindow = try_get_GetDpiForWindow())
         {
-            return pGetDpiForWindow(hwnd);
+            return _pfnGetDpiForWindow(_hWnd);
         }
 
-        if (HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY))
+        do
         {
-            UINT nDpiX, nDpiY;
-            if (SUCCEEDED(GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &nDpiX, &nDpiY)))
+            DWORD _uPorcessId;
+            if (GetWindowThreadProcessId(_hWnd, &_uPorcessId) == 0)
+                break;
+
+            if (internal::GetSystemVersion() < __WindowsNT6)
             {
-                return nDpiX;
+                return internal::GetDpiForSystemDownlevel();
             }
-        }
 
-        return internal::GetDpiForSystemDownlevel();
+            PROCESS_DPI_AWARENESS _eCurrentPocressDpiAwareness;
+            if (FAILED(GetProcessDpiAwareness(nullptr, &_eCurrentPocressDpiAwareness)))
+                break;
+
+            if (_uPorcessId == (ULONG)NtCurrentTeb()->ClientId.UniqueProcess)
+            {
+                if (_eCurrentPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_PER_MONITOR_DPI_AWARE)
+                {
+                    HMONITOR _hMonitor = MonitorFromWindow(_hWnd, MONITOR_DEFAULTTOPRIMARY);
+                    if (!_hMonitor)
+                        break;
+
+                    UINT _uDpiX, _uDpiY;
+                    if (FAILED(GetDpiForMonitor(_hMonitor, MDT_EFFECTIVE_DPI, &_uDpiX, &_uDpiY)))
+                        break;
+
+                    return _uDpiX;
+                }
+                else
+                {
+                    return internal::GetDpiForSystemDownlevel();
+                }
+            }
+            else
+            {
+                auto _hTargrtPocress = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, _uPorcessId);
+                if (!_hTargrtPocress)
+                    break;
+
+                PROCESS_DPI_AWARENESS _eTargrtPocressDpiAwareness;
+                auto _hr = GetProcessDpiAwareness(_hTargrtPocress, &_eTargrtPocressDpiAwareness);
+                CloseHandle(_hTargrtPocress);
+                if (FAILED(_hr))
+                    break;
+
+                if (_eTargrtPocressDpiAwareness == _eCurrentPocressDpiAwareness)
+                {
+                    if (_eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_PER_MONITOR_DPI_AWARE)
+                    {
+                        HMONITOR _hMonitor = MonitorFromWindow(_hWnd, MONITOR_DEFAULTTOPRIMARY);
+                        if (!_hMonitor)
+                            break;
+
+                        UINT _uDpiX, _uDpiY;
+                        if (FAILED(GetDpiForMonitor(_hMonitor, MDT_EFFECTIVE_DPI, &_uDpiX, &_uDpiY)))
+                            break;
+
+                        return _uDpiX;
+                    }
+                    else
+                    {
+                        return internal::GetDpiForSystemDownlevel();
+                    }
+                }
+                else if (_eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_PER_MONITOR_DPI_AWARE
+                    || _eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_SYSTEM_DPI_AWARE)
+                {
+                    const auto _uBaseDpi = internal::GetDpiForSystemDownlevel();
+                    if (_eCurrentPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_PER_MONITOR_DPI_AWARE)
+                    {
+                        //  _eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_SYSTEM_DPI_AWARE
+                        return _uBaseDpi;
+                    }
+
+
+                    HMONITOR _hMonitor = MonitorFromWindow(_eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_PER_MONITOR_DPI_AWARE ? _hWnd : nullptr, MONITOR_DEFAULTTOPRIMARY);
+                    if (!_hMonitor)
+                        break;
+
+                    MONITORINFOEXW _oMonitorInfo = { {sizeof(MONITORINFOEX)} };
+                    DEVMODEW _oDevMode = {};
+                    _oDevMode.dmSize = sizeof(_oDevMode);
+                    if (GetMonitorInfoW(_hMonitor, &_oMonitorInfo) == FALSE || EnumDisplaySettingsW(_oMonitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &_oDevMode) == FALSE)
+                        break;
+
+                    return _oDevMode.dmPelsHeight * _uBaseDpi / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
+                }
+                else
+                {
+                    // _eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_DPI_UNAWARE
+                    // TODO：当XP风格缩放开启时，这里值应该是 internal::GetDpiForSystemDownlevel()
+                    return USER_DEFAULT_SCREEN_DPI;
+                }
+            }
+        } while (false);
+
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return 0ul;
     }
 #endif
 

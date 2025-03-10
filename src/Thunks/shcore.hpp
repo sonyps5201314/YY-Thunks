@@ -107,6 +107,7 @@ namespace YY::Thunks
         }
         else
         {
+            // TODO：[6.0, 6.2] 需要从内存中读取进程DPI感知
             *_peValue = PROCESS_DPI_UNAWARE;
         }
         return S_OK;
