@@ -88,8 +88,9 @@ namespace YY::Thunks
             return _pfnIsProcessDPIAware();
         }
 
-        // XP 无法感知DPI，返回的Rect始终被系统缩放了。
-        return FALSE;
+        // 2025年3月11日实验结果 XP始终发生DPI感知
+        // 我们报告API并没有什么问题。
+        return TRUE;
     }
 #endif
 
@@ -112,8 +113,8 @@ namespace YY::Thunks
             return pSetProcessDPIAware();
         }
 
-        // 假装成功，其实我们都知道，我们没有成功……
-        // XP系统无法感知 DPI
+        // 2025年3月11日实验结果 XP始终发生DPI感知
+        // 所以我们返回成功没有啥问题。
         return TRUE;
     }
 #endif
