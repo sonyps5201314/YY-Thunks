@@ -25,6 +25,10 @@ namespace YY::Thunks
 
                 _pItem->pNext = nullptr;
                 _pItem->pPrior = pLast;
+                if (pLast)
+                {
+                    pLast->pNext = _pItem;
+                }
                 pLast = _pItem;
 
                 if (!pFirst)

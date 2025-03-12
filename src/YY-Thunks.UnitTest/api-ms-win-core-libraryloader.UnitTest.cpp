@@ -186,5 +186,17 @@ namespace api_ms_win_core_libraryloader
             Assert::IsNotNull(_pCookie);
             Assert::IsTrue(RemoveDllDirectory(_pCookie));
         }
+
+        TEST_METHOD(多次调用)
+        {
+            auto _pCookie1 = AddDllDirectory(L"C:\\123");
+            Assert::IsNotNull(_pCookie1);
+
+            auto _pCookie2 = AddDllDirectory(L"C:\\456");
+            Assert::IsNotNull(_pCookie2);
+
+            Assert::IsTrue(RemoveDllDirectory(_pCookie2));
+            Assert::IsTrue(RemoveDllDirectory(_pCookie1));
+        }
     };
 }

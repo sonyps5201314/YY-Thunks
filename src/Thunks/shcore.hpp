@@ -100,15 +100,39 @@ namespace YY::Thunks
             return _pfnGetProcessDpiAwareness(_hProcess, _peValue);
         }
         
-        if (_hProcess == NULL || _hProcess == NtCurrentProcess()
-            || GetProcessId(_hProcess) == (ULONG)NtCurrentTeb()->ClientId.UniqueProcess)
+        do
         {
-            *_peValue = IsProcessDPIAware() ? PROCESS_SYSTEM_DPI_AWARE : PROCESS_DPI_UNAWARE;
-        }
-        else
-        {
-            *_peValue = PROCESS_DPI_UNAWARE;
-        }
+            if (_hProcess == NULL || _hProcess == NtCurrentProcess())
+                break;
+
+            const auto _uProcessId = GetProcessId(_hProcess);
+            if (_uProcessId == 0)
+                return E_INVALIDARG;
+
+            if (_uProcessId == (ULONG)NtCurrentTeb()->ClientId.UniqueProcess)
+                break;
+
+            if (internal::GetSystemVersion() < __WindowsNT6)
+            {
+                *_peValue = PROCESS_SYSTEM_DPI_AWARE;
+                return S_OK;
+            }
+            else if (internal::GetSystemVersion() < __WindowsNT6_SP2)
+            {
+                BOOL _bEnable = FALSE;
+                if (FAILED(DwmIsCompositionEnabled(&_bEnable)) || _bEnable == FALSE)
+                {
+                    *_peValue = PROCESS_SYSTEM_DPI_AWARE;
+                    return S_OK;
+                }
+            }
+
+            // TODO：[6.0, 6.2] 需要从内存中读取进程DPI感知
+            *_peValue = PROCESS_SYSTEM_DPI_AWARE;
+            return S_OK;
+        } while (false);
+
+        *_peValue = IsProcessDPIAware() ? PROCESS_SYSTEM_DPI_AWARE : PROCESS_DPI_UNAWARE;
         return S_OK;
     }
 #endif
