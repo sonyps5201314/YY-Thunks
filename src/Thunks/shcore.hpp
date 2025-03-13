@@ -70,10 +70,14 @@ namespace YY::Thunks
         switch (_eValue)
         {
         case PROCESS_DPI_UNAWARE:
+            if (IsProcessDPIAware())
+            {
+                return E_ACCESSDENIED;
+            }
             return S_OK;
         case PROCESS_SYSTEM_DPI_AWARE:
         case PROCESS_PER_MONITOR_DPI_AWARE:
-            return SetProcessDPIAware() ? S_OK : E_FAIL;
+            return SetProcessDPIAware() ? S_OK : E_ACCESSDENIED;
         default:
             return E_INVALIDARG;
         }
@@ -117,19 +121,50 @@ namespace YY::Thunks
                 *_peValue = PROCESS_SYSTEM_DPI_AWARE;
                 return S_OK;
             }
-            else if (internal::GetSystemVersion() < __WindowsNT6_SP2)
+            else
             {
-                BOOL _bEnable = FALSE;
-                if (FAILED(DwmIsCompositionEnabled(&_bEnable)) || _bEnable == FALSE)
+                // (,6.2] 所有屏幕的Dpi均为SystemDpi。所以 SystemDpi == USER_DEFAULT_SCREEN_DPI时，所有进程Dpi均为 USER_DEFAULT_SCREEN_DPI。
+                // 虽然 RealGetDpiForSystemDownlevel() == USER_DEFAULT_SCREEN_DPI 不代表进程开了系统感知。但是反正他们是相同的，怎么返回其实无所谓。
+                const auto _uRealSystemDpi = internal::RealGetDpiForSystemDownlevel();
+                if (_uRealSystemDpi == USER_DEFAULT_SCREEN_DPI)
                 {
                     *_peValue = PROCESS_SYSTEM_DPI_AWARE;
                     return S_OK;
                 }
-            }
 
-            // TODO：[6.0, 6.2] 需要从内存中读取进程DPI感知
-            *_peValue = PROCESS_SYSTEM_DPI_AWARE;
-            return S_OK;
+                struct EnumData
+                {
+                    PROCESS_DPI_AWARENESS eValue = PROCESS_DPI_UNAWARE;
+                    DWORD uProcessId = 0;
+                };
+
+                EnumData _oData = { PROCESS_DPI_AWARENESS::PROCESS_DPI_UNAWARE, _uProcessId };
+                EnumWindows(
+                    [](HWND _hWnd, LPARAM _lParam) -> BOOL
+                    {
+                        auto _pData = (EnumData*)_lParam;
+                        if (!_hWnd)
+                            return TRUE;
+
+                        DWORD _uTargrtPocressId;
+                        if (GetWindowThreadProcessId(_hWnd, &_uTargrtPocressId) == 0)
+                            return TRUE;
+
+                        if (_uTargrtPocressId != _pData->uProcessId)
+                            return TRUE;
+
+                        const auto _uDpi = internal::GetDpiForWindowDownlevel(_hWnd);
+                        if (_uDpi == 0)
+                            return TRUE;
+
+                        _pData->eValue = _uDpi == internal::RealGetDpiForSystemDownlevel() ? PROCESS_SYSTEM_DPI_AWARE : PROCESS_DPI_UNAWARE;
+                        return FALSE;
+                    },
+                    LPARAM(&_oData));
+
+                *_peValue = _oData.eValue;
+                return S_OK;
+            }
         } while (false);
 
         *_peValue = IsProcessDPIAware() ? PROCESS_SYSTEM_DPI_AWARE : PROCESS_DPI_UNAWARE;
