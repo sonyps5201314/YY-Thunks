@@ -49,7 +49,7 @@ namespace YY::Thunks::internal
         /// 获取真实的系统DPI。
         /// </summary>
         /// <returns></returns>
-        static UINT __fastcall RealGetDpiForSystemDownlevel() noexcept
+        static UINT __fastcall RealGetDpiForSystemDownlevel(HWND _hSystemAwareWnd = nullptr) noexcept
         {
             static UINT s_uRealSystemDpi = 0;
             if (s_uRealSystemDpi)
@@ -58,7 +58,6 @@ namespace YY::Thunks::internal
             UINT _uDpi = GetDpiForSystemDownlevel();
             if (_uDpi == USER_DEFAULT_SCREEN_DPI  && IsProcessDPIAware() == FALSE)
             {
-                // 早期系统 主屏Dpi始终等于系统Dpi，因为修改主屏Dpi必须注销。
                 HMONITOR _hMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
                 if (_hMonitor)
                 {
@@ -67,7 +66,31 @@ namespace YY::Thunks::internal
                     _oDevMode.dmSize = sizeof(_oDevMode);
                     if (GetMonitorInfoW(_hMonitor, &_oMonitorInfo) && EnumDisplaySettingsW(_oMonitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &_oDevMode))
                     {
-                        _uDpi = _oDevMode.dmPelsHeight * _uDpi / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
+                        // MonitorDpi
+                        _uDpi = _oDevMode.dmPelsHeight * USER_DEFAULT_SCREEN_DPI / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
+
+                        // [6.3,) 这类系统屏幕Dpi随时可以改变，MonitorDpi并不一定与系统Dpi相同。
+                        if (internal::GetSystemVersion() >= __WindowsNT6_3)
+                        {
+                            _ASSERT(_hSystemAwareWnd);
+                            if (!_hSystemAwareWnd)
+                                return _uDpi;
+
+#if (YY_Thunks_Target < __WindowsNT6_3)
+                            auto const LogicalToPhysicalPointForPerMonitorDPI = try_get_LogicalToPhysicalPointForPerMonitorDPI();
+#endif
+                            constexpr uint32_t kLogical = USER_DEFAULT_SCREEN_DPI;
+                            POINT _uPhysical = { kLogical ,kLogical };
+                            if (!LogicalToPhysicalPointForPerMonitorDPI(_hSystemAwareWnd, &_uPhysical))
+                            {
+                                return _uDpi;
+                            }
+
+                            // LogicalToPhysicalPointForPerMonitorDPI存在以下转换关系：
+                            // Physical = Logical * MonitorDpi / SystemDpi;
+                            // 所以：SystemDpi = Logical * MonitorDpi / Physical;
+                            _uDpi /*SystemDpi*/ = kLogical * _uDpi / _uPhysical.x;
+                        }
                     }
                 }
             }
@@ -412,7 +435,7 @@ namespace YY::Thunks
                 }
                 else if (_eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_SYSTEM_DPI_AWARE)
                 {
-                    return internal::RealGetDpiForSystemDownlevel();
+                    return internal::RealGetDpiForSystemDownlevel(_hWnd);
                 }
                 else
                 {

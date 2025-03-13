@@ -780,6 +780,8 @@
 | GetPointerDeviceRects                      | 报告错误 ERROR_INVALID_PARAMETER。
 | PhysicalToLogicalPoint                     | 假装成功。
 | LogicalToPhysicalPoint                     | 假装成功。
+| PhysicalToLogicalPointForPerMonitorDPI     | 调用 PhysicalToLogicalPoint。
+| LogicalToPhysicalPointForPerMonitorDPI     | 调用 LogicalToPhysicalPoint。
 
 ## userenv.dll
 | 函数                                       | Fallback
