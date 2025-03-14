@@ -1,4 +1,4 @@
-﻿#if (YY_Thunks_Target < __WindowsNT6_2)
+﻿#if (YY_Thunks_Target < __WindowsNT6_3)
 #include <winuser.h>
 #endif
 
@@ -74,6 +74,53 @@ namespace YY::Thunks
         }
 
         return TRUE;
+    }
+#endif
+
+#if (YY_Thunks_Target < __WindowsNT6_3)
+
+    // 最低受支持的客户端	Windows 8.1 [仅限桌面应用]
+    // 最低受支持的服务器	Windows Server 2012 R2[仅限桌面应用]
+    __DEFINE_THUNK(
+    user32,
+    8,
+    BOOL,
+    WINAPI,
+    PhysicalToLogicalPointForPerMonitorDPI,
+        _In_ HWND _hWnd,
+        _Inout_ LPPOINT _pPoint
+        )
+    {
+        if (auto const _pfnPhysicalToLogicalPointForPerMonitorDPI = try_get_PhysicalToLogicalPointForPerMonitorDPI())
+        {
+            return _pfnPhysicalToLogicalPointForPerMonitorDPI(_hWnd, _pPoint);
+        }
+
+        return PhysicalToLogicalPoint(_hWnd, _pPoint);
+    }
+#endif
+
+
+#if (YY_Thunks_Target < __WindowsNT6_3)
+
+    // 最低受支持的客户端	Windows 8.1 [仅限桌面应用]
+    // 最低受支持的服务器	Windows Server 2012 R2[仅限桌面应用]
+    __DEFINE_THUNK(
+    user32,
+    8,
+    BOOL,
+    WINAPI,
+    LogicalToPhysicalPointForPerMonitorDPI,
+        _In_ HWND _hWnd,
+        _Inout_ LPPOINT _pPoint
+        )
+    {
+        if (auto const _pfnLogicalToPhysicalPointForPerMonitorDPI = try_get_LogicalToPhysicalPointForPerMonitorDPI())
+        {
+            return _pfnLogicalToPhysicalPointForPerMonitorDPI(_hWnd, _pPoint);
+        }
+
+        return LogicalToPhysicalPoint(_hWnd, _pPoint);
     }
 #endif
 }
