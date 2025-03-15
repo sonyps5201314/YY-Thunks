@@ -727,7 +727,7 @@
 | IsWow64Process                             | 返回TRUE，并设置 `*Wow64Process = FALSE`。
 | SetProcessDpiAwarenessContext              | 调用SetProcessDpiAwareness。
 | GetDpiForSystem                            | 调用GetDeviceCaps。
-| GetDpiForWindow                            | 调用GetDpiForMonitor。温馨提示：如果窗口处于最小化状态，则可能返回错误值。
+| GetDpiForWindow                            | 调用GetDpiForMonitor。温馨提示：如果窗口宽度或者高度为0时可能返回不正确的Dpi。
 | GetSystemMetricsForDpi                     | 调用GetSystemMetrics。
 | AdjustWindowRectExForDpi                   | 调用AdjustWindowRectEx。
 | SystemParametersInfoW(A)                   | SPI_GETNONCLIENTMETRICS修正。

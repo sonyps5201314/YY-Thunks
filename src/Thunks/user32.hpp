@@ -42,114 +42,139 @@ namespace YY::Thunks::internal
 
             return nDPICache = nDpiX;
         }
-#endif
 
-#if (YY_Thunks_Target < __WindowsNT10_14393)
         /// <summary>
         /// 获取真实的系统DPI。
         /// </summary>
         /// <returns></returns>
-        static UINT __fastcall RealGetDpiForSystemDownlevel(HWND _hSystemAwareWnd = nullptr) noexcept
+        static UINT __fastcall GetDpiForGlobalSystemDownlevel(HWND _hSystemAwareWnd = nullptr) noexcept
         {
-            static UINT s_uRealSystemDpi = 0;
-            if (s_uRealSystemDpi)
-                return s_uRealSystemDpi;
+            static UINT s_uGlobalSystemDpi = 0;
+            if (s_uGlobalSystemDpi)
+                return s_uGlobalSystemDpi;
 
             UINT _uDpi = GetDpiForSystemDownlevel();
-            if (_uDpi == USER_DEFAULT_SCREEN_DPI  && IsProcessDPIAware() == FALSE)
+            if (!IsProcessDPIAware())
             {
-                HMONITOR _hMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
-                if (_hMonitor)
+                if (internal::GetSystemVersion() < __WindowsNT6_3)
                 {
+                    // [,6.3)：这类系统主屏Dpi == SystemDpi
+                    HMONITOR _hMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+                    if (!_hMonitor)
+                        return _uDpi;
+
                     MONITORINFOEXW _oMonitorInfo = { {sizeof(_oMonitorInfo)} };
                     DEVMODEW _oDevMode = {};
                     _oDevMode.dmSize = sizeof(_oDevMode);
-                    if (GetMonitorInfoW(_hMonitor, &_oMonitorInfo) && EnumDisplaySettingsW(_oMonitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &_oDevMode))
-                    {
-                        // MonitorDpi
-                        _uDpi = _oDevMode.dmPelsHeight * USER_DEFAULT_SCREEN_DPI / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
+                    if (GetMonitorInfoW(_hMonitor, &_oMonitorInfo) == FALSE || EnumDisplaySettingsW(_oMonitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &_oDevMode) == FALSE)
+                        return _uDpi;
 
-                        // [6.3,) 这类系统屏幕Dpi随时可以改变，MonitorDpi并不一定与系统Dpi相同。
-                        if (internal::GetSystemVersion() >= __WindowsNT6_3)
-                        {
-                            _ASSERT(_hSystemAwareWnd);
-                            if (!_hSystemAwareWnd)
-                                return _uDpi;
+                    // MonitorDpi
+                    _uDpi = _oDevMode.dmPelsHeight * USER_DEFAULT_SCREEN_DPI / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
+                }
+                else
+                {
+                    // [6.3, )：这类系统屏幕Dpi可以随时调整
+                    _ASSERT(_hSystemAwareWnd);
+                    if(!_hSystemAwareWnd)
+                        return _uDpi;
+
+                    HMONITOR _hMonitor = MonitorFromWindow(_hSystemAwareWnd, MONITOR_DEFAULTTOPRIMARY);
+                    if (!_hMonitor)
+                        return _uDpi;
+
+                    MONITORINFOEXW _oMonitorInfo = { {sizeof(_oMonitorInfo)} };
+                    DEVMODEW _oDevMode = {};
+                    _oDevMode.dmSize = sizeof(_oDevMode);
+                    if (GetMonitorInfoW(_hMonitor, &_oMonitorInfo) == FALSE || EnumDisplaySettingsW(_oMonitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &_oDevMode) == FALSE)
+                        return _uDpi;
+
+                    // MonitorDpi
+                    _uDpi = _oDevMode.dmPelsHeight * USER_DEFAULT_SCREEN_DPI / (_oMonitorInfo.rcMonitor.bottom - _oMonitorInfo.rcMonitor.top);
 
 #if (YY_Thunks_Target < __WindowsNT6_3)
-                            auto const LogicalToPhysicalPointForPerMonitorDPI = try_get_LogicalToPhysicalPointForPerMonitorDPI();
+                    auto const LogicalToPhysicalPointForPerMonitorDPI = try_get_LogicalToPhysicalPointForPerMonitorDPI();
 #endif
-                            constexpr uint32_t kLogical = USER_DEFAULT_SCREEN_DPI;
-                            POINT _uPhysical = { kLogical ,kLogical };
-                            if (!LogicalToPhysicalPointForPerMonitorDPI(_hSystemAwareWnd, &_uPhysical))
-                            {
-                                return _uDpi;
-                            }
 
-                            // LogicalToPhysicalPointForPerMonitorDPI存在以下转换关系：
-                            // Physical = Logical * MonitorDpi / SystemDpi;
-                            // 所以：SystemDpi = Logical * MonitorDpi / Physical;
-                            _uDpi /*SystemDpi*/ = kLogical * _uDpi / _uPhysical.x;
-                        }
+                    RECT _oWindowRect;
+                    if(!GetWindowRect(_hSystemAwareWnd, &_oWindowRect))
+                        return _uDpi;
+
+                    const SIZE _oLogicalSize = { _oWindowRect.right - _oWindowRect.left, _oWindowRect.bottom - _oWindowRect.top };
+                    if (!LogicalToPhysicalPointForPerMonitorDPI(_hSystemAwareWnd, (LPPOINT)&_oWindowRect.left))
+                        return _uDpi;
+
+                    if (!LogicalToPhysicalPointForPerMonitorDPI(_hSystemAwareWnd, (LPPOINT)&_oWindowRect.right))
+                        return _uDpi;
+
+                    if (_oLogicalSize.cx >= _oLogicalSize.cy)
+                    {
+                        _uDpi = MulDiv(_oLogicalSize.cx, _uDpi, _oWindowRect.right - _oWindowRect.left);
+                    }
+                    else
+                    {
+                        _uDpi = MulDiv(_oLogicalSize.cy, _uDpi, _oWindowRect.bottom - _oWindowRect.top);
                     }
                 }
             }
 
-            s_uRealSystemDpi = _uDpi;
+            s_uGlobalSystemDpi = _uDpi;
             return _uDpi;
         }
 #endif
 
-
 #if (YY_Thunks_Target < __WindowsNT6_3)
-        static UINT __fastcall GetDpiForWindowDownlevel(HWND _hWnd) noexcept
+        static HRESULT __fastcall IsWindowsScaleLessThanNt6_3(_In_ HWND _hWnd, _Out_ bool* _pbScale)
         {
-            _ASSERT(internal::GetSystemVersion() < __WindowsNT6_3);
+            RECT _oWindowRect;
+            if (!GetWindowRect(_hWnd, &_oWindowRect))
+                return E_FAIL;
 
+            bool _bScale = true;
+            do
+            {
+                RECT _oWindowRect2 = _oWindowRect;
+                if (IsProcessDPIAware())
+                {
 #if (YY_Thunks_Target < __WindowsNT6)
-            if (internal::GetSystemVersion() < __WindowsNT6)
-            {
-                // Windows XP系统所有进程均能感知到 Dpi。
-                return internal::GetDpiForSystemDownlevel();
-            }
+                    const auto PhysicalToLogicalPoint = try_get_PhysicalToLogicalPoint();
 #endif
+                    if (!PhysicalToLogicalPoint(_hWnd, LPPOINT(&_oWindowRect2.right)))
+                        return E_FAIL;
 
-            // (,6.2] 所有屏幕的Dpi均为SystemDpi。所以 SystemDpi == USER_DEFAULT_SCREEN_DPI时，所有进程Dpi均为 USER_DEFAULT_SCREEN_DPI。
-            const auto _uRealSystemDpi = internal::RealGetDpiForSystemDownlevel();
-            if (_uRealSystemDpi == USER_DEFAULT_SCREEN_DPI)
-                return USER_DEFAULT_SCREEN_DPI;
+                    if (_oWindowRect.right != _oWindowRect2.right || _oWindowRect.bottom != _oWindowRect2.bottom)
+                        break;
 
-            constexpr auto kszDpiKeyName = L"DPI{17D23E92-841D-4E45-86B3-BF5100DFD6D9}";
-            auto _hDPIData = GetPropW(_hWnd, kszDpiKeyName);
-            if (_hDPIData)
-            {
-                return UINT(_hDPIData);
-            }
+                    if (!PhysicalToLogicalPoint(_hWnd, LPPOINT(&_oWindowRect2.left)))
+                        return E_FAIL;
 
-            RECT _WindowRect;
-            if (!GetWindowRect(_hWnd, &_WindowRect))
-                return 0;
-
-            POINT _Point = { _WindowRect.right, _WindowRect.bottom };
-            if (IsProcessDPIAware())
-            {
-                if (!PhysicalToLogicalPoint(_hWnd, &_Point))
-                {
-                    return 0;
+                    if (_oWindowRect.left != _oWindowRect2.left || _oWindowRect.top != _oWindowRect2.top)
+                        break;
                 }
-            }
-            else
-            {
-                if (!LogicalToPhysicalPoint(_hWnd, &_Point))
+                else
                 {
-                    return 0;
-                }
-            }
+#if (YY_Thunks_Target < __WindowsNT6)
+                    const auto LogicalToPhysicalPoint = try_get_LogicalToPhysicalPoint();
+#endif
+                    if (!LogicalToPhysicalPoint(_hWnd, LPPOINT(&_oWindowRect2.right)))
+                        return E_FAIL;
 
-            const auto _bScale = _Point.x != _WindowRect.right || _Point.y != _WindowRect.bottom;
-            auto _uDpi = _bScale ? USER_DEFAULT_SCREEN_DPI : _uRealSystemDpi;
-            SetPropW(_hWnd, kszDpiKeyName, (void*)_uDpi);
-            return _uDpi;
+                    if (_oWindowRect.right != _oWindowRect2.right || _oWindowRect.bottom != _oWindowRect2.bottom)
+                        break;
+
+                    if (!LogicalToPhysicalPoint(_hWnd, LPPOINT(&_oWindowRect2.left)))
+                        return E_FAIL;
+
+                    if (_oWindowRect.left != _oWindowRect2.left || _oWindowRect.top != _oWindowRect2.top)
+                        break;
+                }
+
+                _bScale = false;
+            } while (false);
+
+            *_pbScale = _bScale;
+            return S_OK;
+
         }
 #endif
     }
@@ -372,10 +397,26 @@ namespace YY::Thunks
                 return internal::GetDpiForSystemDownlevel();
             }
 #if (YY_Thunks_Target < __WindowsNT6_3)
+            else if (internal::GetSystemVersion() < __WindowsNT6)
+            {
+                // [,6.0) 整个系统一个Dpi。
+                return internal::GetDpiForSystemDownlevel();
+            }
+#endif
+#if (YY_Thunks_Target < __WindowsNT6_3)
             else if (internal::GetSystemVersion() < __WindowsNT6_3)
             {
-                const auto _uDpi = internal::GetDpiForWindowDownlevel(_hWnd);
-                return _uDpi ? _uDpi : USER_DEFAULT_SCREEN_DPI;
+                const auto _uGlobalSystemDpi = internal::GetDpiForGlobalSystemDownlevel();
+                if (_uGlobalSystemDpi == USER_DEFAULT_SCREEN_DPI)
+                    return USER_DEFAULT_SCREEN_DPI;
+
+                bool _bScale;
+                if (SUCCEEDED(internal::IsWindowsScaleLessThanNt6_3(_hWnd, &_bScale)) && _bScale == false)
+                {
+                    return _uGlobalSystemDpi;
+                }
+
+                return USER_DEFAULT_SCREEN_DPI;
             }
 #endif
             else
@@ -435,7 +476,7 @@ namespace YY::Thunks
                 }
                 else if (_eTargrtPocressDpiAwareness == PROCESS_DPI_AWARENESS::PROCESS_SYSTEM_DPI_AWARE)
                 {
-                    return internal::RealGetDpiForSystemDownlevel(_hWnd);
+                    return internal::GetDpiForGlobalSystemDownlevel(_hWnd);
                 }
                 else
                 {

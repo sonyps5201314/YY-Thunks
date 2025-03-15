@@ -77,6 +77,7 @@ namespace YY::Thunks
     }
 #endif
 
+
 #if (YY_Thunks_Target < __WindowsNT6_3)
 
     // 最低受支持的客户端	Windows 8.1 [仅限桌面应用]
