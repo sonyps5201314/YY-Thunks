@@ -57,6 +57,7 @@ namespace YY::Thunks
     }
 #endif
 
+
 #if (YY_Thunks_Target < __WindowsNT6)
 
     // 最低受支持的客户端	Windows Vista [桌面应用 | UWP 应用]
@@ -90,7 +91,7 @@ namespace YY::Thunks
         DWORD _cEntry = 0;
         if (fAlertable)
         {
-            constexpr auto kMaxSleepTime = 6;
+            constexpr DWORD kMaxSleepTime = 6;
             // 使用 SleepEx 进行等待触发 APC
             if (dwMilliseconds == INFINITE)
             {
@@ -114,7 +115,7 @@ namespace YY::Thunks
                         return FALSE;
                     }
 
-                    if (SleepEx(kMaxSleepTime, fAlertable) == WAIT_IO_COMPLETION)
+                    if (SleepEx(kMaxSleepTime, TRUE) == WAIT_IO_COMPLETION)
                     {
                         SetLastError(WAIT_IO_COMPLETION);
                         return FALSE;
