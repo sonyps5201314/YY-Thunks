@@ -73,7 +73,7 @@ ULONGLONG WINAPI GetTickCount64(VOID)
 4. 重新编译代码
 
 ### 2.3. CMake项目如何使用？
-1. 在CMake根目录创建`Directory.Build.props`，内容如下：
+1. 在代码根目录创建`Directory.Build.props`，内容如下：
     ```xml
     <?xml version="1.0" encoding="utf-8"?>
     <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
