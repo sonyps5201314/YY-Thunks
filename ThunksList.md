@@ -4,6 +4,12 @@
 
 > 开头带`*`的函数并不建议使用，存在一些较大负面影响，仅用于编译通过处理，具体负面影响可参考注释内容。
 
+## api-ms-win-core-file-l1-1-0.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| WriteFile                                  | 允许_puNumberOfBytesWritten、_pOverlapped同时为nullptr。
+| ReadFile                                   | 允许_puNumberOfBytesRead、_pOverlapped同时为nullptr。
+
 ## api-ms-win-core-handle-l1-1-0.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
@@ -801,6 +807,7 @@
 | GetSystemDpiForProcess                     | 调用GetDpiForSystem、GetProcessDpiAwareness。
 | IsValidDpiAwarenessContext                 | 内部实现。
 | WindowFromPhysicalPoint                    | 调用WindowFromPoint。
+| SetWindowsHookExW(A)                       | WH_KEYBOARD_LL/WH_MOUSE_LL且dwThreadId为0时，hMod允许为NULL。
 
 ## userenv.dll
 | 函数                                       | Fallback
@@ -867,3 +874,4 @@
 | FreeAddrInfoW                              | 内部实现。
 | WSASocketW(A)                              | 低于6.1.7601时自动去除 `WSA_FLAG_NO_HANDLE_INHERIT`。
 | WSAIoctl                                   | 低于6.0时，`SIO_BASE_HANDLE` 代码返回SOCKET自身。
+| GetHostNameW                               | 调用gethostname。
