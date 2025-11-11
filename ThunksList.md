@@ -96,6 +96,11 @@
 | SetThreadpoolThreadMinimum                 | 忽略，并总是返回成功。警告，此函数请勿跨模块使用！！！
 | CallbackMayRunLong                         | 自己估算系统剩余可用线程数。
 
+## api-ms-win-core-timezone-l1-1-0.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| SystemTimeToTzSpecificLocalTimeEx          | 调用 SystemTimeToTzSpecificLocalTime。
+
 ## api-ms-win-core-winrt-l1-1-0.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
@@ -571,7 +576,7 @@
 | FindNLSStringEx                            | 调用 CompareStringW。
 | SetProcessWorkingSetSizeEx                 | 调用SetProcessWorkingSetSize。
 | GetProcessWorkingSetSizeEx                 | 调用GetProcessWorkingSetSize。
-| GetTimeZoneInformationForYear              | 直接读取`Time Zones`注册表。
+| GetTimeZoneInformationForYear              | 调用GetTimeZoneInformation。
 | SetProcessDEPPolicy                        | 调用NtSetInformationProcess。
 | GetSystemDEPPolicy                         | 返回总是关闭。
 | DisableThreadLibraryCalls                  | 始终返回成功。
