@@ -4,6 +4,12 @@
 
 > 开头带`*`的函数并不建议使用，存在一些较大负面影响，仅用于编译通过处理，具体负面影响可参考注释内容。
 
+## api-ms-win-core-com-l1-1-0.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| CoIncrementMTAUsage                        | 在其他线程调用CoInitializeEx。
+| CoDecrementMTAUsage                        | 什么也不做，故意泄漏MTA。
+
 ## api-ms-win-core-file-l1-1-0.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
@@ -229,6 +235,13 @@
 | D3D12CreateDevice                          | 返回 `E_NOINTERFACE`。
 | D3D12GetDebugInterface                     | 返回 `E_NOINTERFACE`。
 | D3D12SerializeVersionedRootSignature       | 返回 `E_NOINTERFACE`。
+
+## dcomp.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| DCompositionCreateDevice                   | 返回 `E_NOTIMPL`。
+| DCompositionCreateDevice2                  | 调用DCompositionCreateDevice。
+| DCompositionCreateDevice3                  | 调用DCompositionCreateDevice2。
 
 ## DbgHelp.dll
 | 函数                                       | Fallback
