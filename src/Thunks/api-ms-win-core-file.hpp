@@ -162,7 +162,7 @@ namespace YY::Thunks
 
 namespace YY::Thunks
 {
-#if (YY_Thunks_Target < __WindowsNT6)
+#if (YY_Thunks_Target < __WindowsNT6_2)
 
     //Windows Vista,  Windows Server 2008
     __DEFINE_THUNK(
@@ -178,6 +178,55 @@ namespace YY::Thunks
         _In_  DWORD dwBufferSize
         )
     {
+#if (YY_Thunks_Target < __WindowsNT6_2)
+        // FileIdInfo Windows 8开始支持
+        if (FileIdInfo == FileInformationClass && internal::GetSystemVersion() < internal::MakeVersion(6, 2))
+        {
+            if (sizeof(FILE_ID_INFO) > dwBufferSize)
+            {
+                SetLastError(ERROR_BAD_LENGTH);
+                return FALSE;
+            }
+
+#if !defined(__USING_NTDLL_LIB)
+            const auto NtQueryVolumeInformationFile = try_get_NtQueryVolumeInformationFile();
+            if (!NtQueryVolumeInformationFile)
+            {
+                SetLastError(ERROR_INVALID_FUNCTION);
+                return FALSE;
+            }
+
+            const auto NtQueryInformationFile = try_get_NtQueryInformationFile();
+            if (!NtQueryInformationFile)
+            {
+                SetLastError(ERROR_INVALID_FUNCTION);
+                return FALSE;
+            }
+#endif
+
+            IO_STATUS_BLOCK IoStatusBlock;
+            FILE_FS_VOLUME_INFORMATION _oVolumeInfo;
+            LONG Status = NtQueryVolumeInformationFile(hFile, &IoStatusBlock, &_oVolumeInfo, sizeof(_oVolumeInfo), FileFsVolumeInformation);
+            if (STATUS_BUFFER_OVERFLOW != Status && Status < STATUS_SUCCESS)
+            {
+                internal::BaseSetLastNTError(Status);
+                return FALSE;
+            }
+
+            auto _pFileIdInfo = reinterpret_cast<FILE_ID_INFO*>(lpFileInformation);
+            Status = NtQueryInformationFile(hFile, &IoStatusBlock, &_pFileIdInfo->FileId, sizeof(FILE_INTERNAL_INFORMATION), FileInternalInformation);
+            if (Status < STATUS_SUCCESS)
+            {
+                internal::BaseSetLastNTError(Status);
+                return FALSE;
+            }
+
+            *(uint64_t*)(_pFileIdInfo->FileId.Identifier + 8) = 0;
+            _pFileIdInfo->VolumeSerialNumber = _oVolumeInfo.VolumeSerialNumber;
+            return TRUE;
+        }
+#endif // (YY_Thunks_Target < __WindowsNT6_2)
+
         if (auto const pGetFileInformationByHandleEx = try_get_GetFileInformationByHandleEx())
         {
             return pGetFileInformationByHandleEx(hFile, FileInformationClass, lpFileInformation, dwBufferSize);
@@ -1049,7 +1098,7 @@ namespace YY::Thunks
 #endif
 
 
-#if (YY_Thunks_Target < __WindowsNT6)
+#if (YY_Thunks_Target < __WindowsNT6_2)
 
     //Windows Vista [desktop apps only]
     //Windows Server 2008 [desktop apps only]
@@ -1067,6 +1116,14 @@ namespace YY::Thunks
         _In_     DWORD dwFlagsAndAttributes
         )
     {
+#if (YY_Thunks_Target < __WindowsNT6_2)
+        // ExtendedFileIdType Windows 8开始支持
+        if (internal::GetSystemVersion() < internal::MakeVersion(6, 2) && lpFileId && lpFileId->Type == ExtendedFileIdType)
+        {
+            lpFileId->Type = FILE_ID_TYPE::FileIdType;
+        }
+#endif // YY_Thunks_Target < __WindowsNT6_2
+
         if (const auto pOpenFileById = try_get_OpenFileById())
         {
             return pOpenFileById(hVolumeHint, lpFileId, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwFlagsAndAttributes);
