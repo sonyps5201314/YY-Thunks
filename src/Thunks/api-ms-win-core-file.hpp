@@ -4,25 +4,6 @@ namespace YY::Thunks
 {
     namespace
     {
-#if (YY_Thunks_Target < __WindowsNT6)
-        enum _FILE_ID_TYPE_win7
-        {
-            FileIdType,
-            ObjectIdType,
-            MaximumFileIdType
-        };
-
-        struct FILE_ID_DESCRIPTOR_win7
-        {
-            DWORD dwSize;  // Size of the struct
-            FILE_ID_TYPE Type; // Describes the type of identifier passed in.
-            union {
-                LARGE_INTEGER FileId;
-                GUID ObjectId;
-            } DUMMYUNIONNAME;
-        };
-#endif
-
 #if (YY_Thunks_Target < __WindowsNT6_2)
         struct CopyFileExToCopyFile2CallbackContext
         {
@@ -1126,10 +1107,29 @@ namespace YY::Thunks
 
         if (const auto pOpenFileById = try_get_OpenFileById())
         {
+#if (YY_Thunks_Target < __WindowsNT6_2)
+            // ExtendedFileIdType Windows 8开始支持，用FileId模拟
+            FILE_ID_DESCRIPTOR _oFileIdFix;
+            if (internal::GetSystemVersion() < internal::MakeVersion(6, 2) && lpFileId && lpFileId->Type == ExtendedFileIdType)
+            {
+                if (lpFileId->dwSize < RTL_SIZEOF_THROUGH_FIELD(FILE_ID_DESCRIPTOR, ExtendedFileId))
+                {
+                    SetLastError(ERROR_INVALID_PARAMETER);
+                    return INVALID_HANDLE_VALUE;
+                }
+
+                _oFileIdFix.dwSize = sizeof(FILE_ID_DESCRIPTOR);
+                _oFileIdFix.Type = FileIdType;
+                _oFileIdFix.ExtendedFileId = lpFileId->ExtendedFileId;
+
+                lpFileId = &_oFileIdFix;
+            }
+#endif // YY_Thunks_Target < __WindowsNT6_2
+
             return pOpenFileById(hVolumeHint, lpFileId, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwFlagsAndAttributes);
         }
 
-        if (lpFileId == nullptr || lpFileId->dwSize < sizeof(FILE_ID_DESCRIPTOR_win7) || lpFileId->Type >= _FILE_ID_TYPE_win7::MaximumFileIdType)
+        if (lpFileId == nullptr)
         {
             SetLastError(ERROR_INVALID_PARAMETER);
             return INVALID_HANDLE_VALUE;
@@ -1150,13 +1150,42 @@ namespace YY::Thunks
 
         if (FileIdType == lpFileId->Type)
         {
+            if (lpFileId->dwSize < RTL_SIZEOF_THROUGH_FIELD(FILE_ID_DESCRIPTOR, FileId))
+            {
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return INVALID_HANDLE_VALUE;
+            }
+
+            ObjectName.Buffer = (PWSTR)(&lpFileId->FileId);
+            ObjectName.Length = ObjectName.MaximumLength = sizeof(lpFileId->FileId);
+        }
+        else if (ObjectIdType == lpFileId->Type)
+        {
+            if (lpFileId->dwSize < RTL_SIZEOF_THROUGH_FIELD(FILE_ID_DESCRIPTOR, ObjectId))
+            {
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return INVALID_HANDLE_VALUE;
+            }
+
+            ObjectName.Buffer = (PWSTR)(&lpFileId->ObjectId);
+            ObjectName.Length = ObjectName.MaximumLength = sizeof(lpFileId->ObjectId);
+        }
+        else if (ExtendedFileIdType == lpFileId->Type)
+        {
+            if (lpFileId->dwSize < RTL_SIZEOF_THROUGH_FIELD(FILE_ID_DESCRIPTOR, ExtendedFileId))
+            {
+                SetLastError(ERROR_INVALID_PARAMETER);
+                return INVALID_HANDLE_VALUE;
+            }
+
+            // ExtendedFileIdType 仅在 Windows 8 及更高版本中受支持，用FileId模拟
             ObjectName.Buffer = (PWSTR)(&lpFileId->FileId);
             ObjectName.Length = ObjectName.MaximumLength = sizeof(lpFileId->FileId);
         }
         else
         {
-            ObjectName.Buffer = (PWSTR)(&lpFileId->ObjectId);
-            ObjectName.Length = ObjectName.MaximumLength = sizeof(lpFileId->ObjectId);
+            SetLastError(ERROR_INVALID_PARAMETER);
+            return INVALID_HANDLE_VALUE;
         }
 
         OBJECT_ATTRIBUTES ObjectAttributes = {sizeof(ObjectAttributes), hVolumeHint, &ObjectName,  OBJ_CASE_INSENSITIVE };

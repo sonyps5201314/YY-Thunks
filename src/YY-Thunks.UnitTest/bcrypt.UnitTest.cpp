@@ -1136,7 +1136,6 @@ namespace bcrypt
                 &cbPlainText,
                 BCRYPT_PAD_PKCS1);
             Assert::IsTrue(_Status >= 0);
-            Assert::AreEqual((ULONG)sizeof(kPlainText), cbPlainText);
 
             std::vector<BYTE> vecPlainText(cbPlainText);
             _Status = ::BCryptDecrypt(
@@ -1151,6 +1150,7 @@ namespace bcrypt
                 &cbPlainText,
                 BCRYPT_PAD_PKCS1);
             Assert::IsTrue(_Status >= 0);
+            Assert::AreEqual((ULONG)sizeof(kPlainText), cbPlainText);
             vecPlainText.resize(cbPlainText);
 
             Assert::AreEqual(ToHexString(kPlainText), ToHexString(vecPlainText));
