@@ -144,6 +144,11 @@
 | WindowsStringHasEmbeddedNull               | 内部实现。
 | WindowsCompareStringOrdinal                | 内部实现。
 
+## api-ms-win-security-cpwl-l1-1-0.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| CreateProcessWithTokenW                    | 调用CreateProcessAsUserW。
+
 ## advapi32.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
@@ -217,12 +222,46 @@
 | CM_Get_DevNode_PropertyW                   | 调用CM_Get_DevNode_Property_ExW。
 | CM_Set_DevNode_PropertyW                   | 调用CM_Set_DevNode_Property_ExW。
 
+## ncrypt.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| NCryptOpenStorageProvider                  | 内部实现。
+| NCryptIsAlgSupported                       | 内部实现（当前返回 RSA/RSA_SIGN 支持）。
+| NCryptCreatePersistedKey                   | 调用 CryptAcquireContextW。当前仅支持 RSA。
+| NCryptSetProperty                          | 内部实现（支持 NCRYPT_LENGTH_PROPERTY）。
+| NCryptGetProperty                          | 内部实现（支持 NCRYPT_LENGTH_PROPERTY/NCRYPT_ALGORITHM_PROPERTY）。
+| NCryptFinalizeKey                          | 调用 CryptGenKey。
+| NCryptOpenKey                              | 调用 CryptAcquireContextW。
+| NCryptImportKey                            | 调用 CryptImportKey。
+| NCryptExportKey                            | 调用 CryptExportKey。
+| NCryptSignHash                             | 调用 CryptSignHashW。
+| NCryptVerifySignature                      | 调用 CryptVerifySignatureW。
+| NCryptEncrypt                              | 调用 CryptEncrypt。
+| NCryptDecrypt                              | 调用 CryptDecrypt。
+| NCryptDeleteKey                            | 调用 CryptAcquireContextW 删除。
+| NCryptFreeObject                           | 调用 CryptReleaseContext等。
+| NCryptCreateProtectionDescriptor           | 内部实现。
+| NCryptCloseProtectionDescriptor            | 内部实现。
+| NCryptGetProtectionDescriptorInfo          | 内部实现。
+| NCryptProtectSecret                        | 调用 CryptProtectData。
+| NCryptUnprotectSecret                      | 调用 CryptUnprotectData。
+| NCryptDeriveKey                            | 内部实现。
+| NCryptSecretAgreement                      | 内部实现。
+
+## Credui.dll
+| 函数                                       | Fallback
+| ----                                       | -----------
+| CredUIPromptForWindowsCredentialsW(A)      | 调用CredUIPromptForCredentialsW(A)。
+| CredPackAuthenticationBufferW(A)           | 内部实现。
+| CredUnPackAuthenticationBufferW(A)         | 内部实现。
+
 ## Crypt32.dll
 | 函数                                       | Fallback
 | ----                                       | -----------
 | CryptProtectMemory                         | 返回TRUE。
 | CryptUnprotectMemory                       | 返回TRUE。
 | CryptBinaryToStringW(A)                    | 为Windows XP模拟 CRYPT_STRING_NOCRLF。
+| CryptImportPublicKeyInfoEx2                | 调用CryptImportPublicKeyInfoEx。
 
 ## d3d9.dll
 | 函数                                       | Fallback
