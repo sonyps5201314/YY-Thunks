@@ -851,6 +851,9 @@
 | IsTouchWindow                              | 始终报告非触摸窗口。
 | GetTouchInputInfo                          | 报告错误 ERROR_INVALID_HANDLE。
 | CloseTouchInputHandle                      | 报告错误 ERROR_INVALID_HANDLE。
+| SetGestureConfig                            | 什么都不做，假装成功。
+| CloseGestureInfoHandle                      | 报告错误 ERROR_INVALID_HANDLE。
+| GetGestureInfo                              | 报告错误 ERROR_INVALID_HANDLE。
 | *ChangeWindowMessageFilterEx               | 调用ChangeWindowMessageFilter。温馨提示：将影响该进程的所有窗口。
 | ChangeWindowMessageFilter                  | 什么都不做，假装成功。
 | UpdateLayeredWindowIndirect                | 调用UpdateLayeredWindow。
@@ -961,4 +964,5 @@
 | WSASocketW(A)                              | 低于6.1.7601时自动去除 `WSA_FLAG_NO_HANDLE_INHERIT`。
 | WSAIoctl                                   | 低于6.0时，`SIO_BASE_HANDLE` 代码返回SOCKET自身。
 | GetHostNameW                               | 调用gethostname。
+| GetNameInfoW                               | 调用getnameinfo。
 
