@@ -31,6 +31,9 @@
     <Filter Include="Shared">
       <UniqueIdentifier>{95ed93c5-b5db-4021-b71e-91b48c16e83d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="WinRT">
+      <UniqueIdentifier>{e886e72e-8b00-4354-8455-031f074bb2c8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -67,6 +70,9 @@
       <Filter>源文件\UnitTest</Filter>
     </ClCompile>
     <ClCompile Include="api-ms-win-core-kernel32-legacy.UnitTest.cpp">
+      <Filter>源文件\UnitTest</Filter>
+    </ClCompile>
+<ClCompile Include="api-ms-win-core-namedpipe.UnitTest.cpp">
       <Filter>源文件\UnitTest</Filter>
     </ClCompile>
     <ClCompile Include="weak.c">
@@ -112,7 +118,13 @@
       <Filter>源文件\UnitTest</Filter>
     </ClCompile>
     <ClCompile Include="credui.UnitTest.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\UnitTest</Filter>
+    </ClCompile>
+    <ClCompile Include="ncrypy.UnitTest.cpp">
+      <Filter>源文件\UnitTest</Filter>
+    </ClCompile>
+    <ClCompile Include="api-ms-win-core-winrt.UnitTest.cpp">
+      <Filter>源文件\UnitTest</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -197,6 +209,9 @@
     <ClInclude Include="..\Thunks\shcore.hpp">
       <Filter>Thunks</Filter>
     </ClInclude>
+    <ClInclude Include="..\Thunks\api-ms-win-shcore-sysinfo.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
     <ClInclude Include="..\Thunks\shell32.hpp">
       <Filter>Thunks</Filter>
     </ClInclude>
@@ -213,6 +228,9 @@
       <Filter>Thunks</Filter>
     </ClInclude>
     <ClInclude Include="..\Thunks\api-ms-win-core-memory.hpp">
+      <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\api-ms-win-core-namedpipe.hpp">
       <Filter>Thunks</Filter>
     </ClInclude>
     <ClInclude Include="..\Thunks\api-ms-win-core-threadpool.hpp">
@@ -415,6 +433,9 @@
     </ClInclude>
     <ClInclude Include="..\Thunks\ncrypy.hpp">
       <Filter>Thunks</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Thunks\WinRT\Windows.UI.ViewManagement.UIViewSettings.h">
+      <Filter>WinRT</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

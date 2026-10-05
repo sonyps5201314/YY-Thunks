@@ -115,7 +115,7 @@
 | RoActivateInstance                         | 返回 E_NOTIMPL。
 | RoRegisterActivationFactories              | 返回 E_NOTIMPL。
 | RoRevokeActivationFactories                | 什么也不做。
-| RoGetActivationFactory                     | 返回 CLASS_E_CLASSNOTAVAILABLE
+| RoGetActivationFactory                     | 内部实现。
 | RoRegisterForApartmentShutdown             | 返回 E_NOTIMPL。
 | RoUnregisterForApartmentShutdown           | 返回 E_NOTIMPL。
 | RoGetApartmentIdentifier                   | 返回 E_NOTIMPL。
@@ -261,6 +261,7 @@
 | CryptProtectMemory                         | 返回TRUE。
 | CryptUnprotectMemory                       | 返回TRUE。
 | CryptBinaryToStringW(A)                    | 为Windows XP模拟 CRYPT_STRING_NOCRLF。
+| CryptHashCertificate2                      | 调用CryptHashCertificate。
 | CryptImportPublicKeyInfoEx2                | 调用CryptImportPublicKeyInfoEx。
 
 ## d3d9.dll
@@ -666,6 +667,8 @@
 | SetThreadDescription                       | 返回 `E_NOTIMPL`。
 | GetSystemFirmwareTable                     | 读取PhysicalMemory或者注册表。注意：目前仅支持'RSMB'、'ACPI'。
 | GetPhysicallyInstalledSystemMemory         | 调用GetSystemFirmwareTable。
+| GetNamedPipeClientProcessId                | 内部维护管道PID。
+| GetNamedPipeServerProcessId                | 内部维护管道PID。
 
 ## mfplat.dll
 | 函数                                       | Fallback
@@ -809,6 +812,7 @@
 | SHGetStockIconInfo                         | 调用LoadImageW。
 | SHGetPropertyStoreForWindow                | 报告错误 E_NOTIMPL。
 | SHOpenWithDialog                           | 报告错误 E_NOTIMPL。
+| SetCurrentProcessExplicitAppUserModelID    | 返回 S_OK，不提供真实 AppUserModelID 语义。
 
 ## shlwapi.dll
 | 函数                                       | Fallback
