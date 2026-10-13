@@ -1097,14 +1097,6 @@ namespace YY::Thunks
         _In_     DWORD dwFlagsAndAttributes
         )
     {
-#if (YY_Thunks_Target < __WindowsNT6_2)
-        // ExtendedFileIdType Windows 8开始支持
-        if (internal::GetSystemVersion() < internal::MakeVersion(6, 2) && lpFileId && lpFileId->Type == ExtendedFileIdType)
-        {
-            lpFileId->Type = FILE_ID_TYPE::FileIdType;
-        }
-#endif // YY_Thunks_Target < __WindowsNT6_2
-
         if (const auto pOpenFileById = try_get_OpenFileById())
         {
 #if (YY_Thunks_Target < __WindowsNT6_2)
